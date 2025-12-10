@@ -1,0 +1,31 @@
+name: Desk Reservation Cron
+
+on:
+  schedule:
+    # Run every weekday at 9:01 AM Eastern (14:00 UTC)
+    - cron: "1 14 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  run-reservation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make script executable
+        run: chmod +x reserve.sh
+
+      - name: Run reservation script
+        env:
+          APPSPACE_TOKEN: ${{ secrets.APPSPACE_TOKEN }}
+          RESOURCE_ID: ${{ secrets.RESOURCE_ID }}
+          ORGANIZER_ID: ${{ secrets.ORGANIZER_ID }}
+          ORGANIZER_NAME: ${{ secrets.ORGANIZER_NAME }}
+          ORGANIZER_EMAIL: ${{ secrets.ORGANIZER_EMAIL }}
+          BOOKING_START_UTC: ${{ secrets.BOOKING_START_UTC }}
+          BOOKING_END_UTC: ${{ secrets.BOOKING_END_UTC }}
+          APPSPACE_HOST: ${{ secrets.APPSPACE_HOST }}
+        run: |
+          ./reserve.sh

@@ -2,16 +2,23 @@
 
 # Auto-reserve desk Monday through Friday when days become available
 
-# Load config from .env file in the repo root
+# Load local .env if it exists and variables aren't already set
 CONFIG_FILE=".env"
-if [[ ! -f "$CONFIG_FILE" ]]; then
-  echo "Config file not found at $CONFIG_FILE"
-  exit 1
+if [[ -f "$CONFIG_FILE" ]]; then
+  set -o allexport
+  source "$CONFIG_FILE"
+  set +o allexport
 fi
 
-set -o allexport
-source "$CONFIG_FILE"
-set +o allexport
+# Ensure required environment variables exist
+: "${APPSPACE_HOST:?Missing APPSPACE_HOST}"
+: "${APPSPACE_TOKEN:?Missing APPSPACE_TOKEN}"
+: "${RESOURCE_ID:?Missing RESOURCE_ID}"
+: "${ORGANIZER_ID:?Missing ORGANIZER_ID}"
+: "${ORGANIZER_NAME:?Missing ORGANIZER_NAME}"
+: "${ORGANIZER_EMAIL:?Missing ORGANIZER_EMAIL}"
+: "${BOOKING_START_UTC:?Missing BOOKING_START_UTC}"
+: "${BOOKING_END_UTC:?Missing BOOKING_END_UTC}"
 
 # Required environment variables:
 #   APPSPACE_TOKEN
@@ -63,7 +70,7 @@ reserve_day() {
 }
 
 # Loop through 7 upcoming days and book only weekdays (Mon–Fri)
-for i in {1..7}; do
+for i in {0..7}; do
   DATE=$(date -v+"${i}"d +%Y-%m-%d 2>/dev/null || date -d "+${i} days" +%Y-%m-%d)
   DAY_OF_WEEK=$(date -d "$DATE" +%u 2>/dev/null || date -j -f "%Y-%m-%d" "$DATE" +%u)
 
