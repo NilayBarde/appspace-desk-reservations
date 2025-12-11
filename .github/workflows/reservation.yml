@@ -3,7 +3,8 @@ name: Desk Reservation Cron
 on:
   schedule:
     # Run every weekday at 9:01 AM Eastern (14:00 UTC)
-    - cron: "1 14 * * 1-5"
+    - cron: "11 14 * * 1-5" # Winter (EST)
+    - cron: "11 13 * * 1-5" # Summer (EDT)
   workflow_dispatch: {}
 
 jobs:
