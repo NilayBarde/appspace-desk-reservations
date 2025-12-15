@@ -1,32 +1,89 @@
 name: Desk Reservation Cron
 
+# To add more users, just update the USER_CONFIGS secret in GitHub
+# No code changes needed! The secret should be JSON with all user configs.
 on:
   schedule:
     # Run every weekday at 9:01 AM Eastern (14:00 UTC)
     - cron: "1 14 * * 1-5" # Winter (EST)
     - cron: "1 13 * * 1-5" # Summer (EDT)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      user:
+        description: 'Which user(s) to run for (user1, user2, etc., or "all")'
+        required: false
+        default: 'all'
+        type: string
 
 jobs:
-  run-reservation:
+  set-users:
     runs-on: ubuntu-latest
+    outputs:
+      users: ${{ steps.set-users.outputs.users }}
+    steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      
+      - name: Parse users from USER_CONFIGS secret
+        id: set-users
+        env:
+          USER_CONFIGS: ${{ secrets.USER_CONFIGS }}
+        run: |
+          # Parse JSON from USER_CONFIGS secret to get list of users
+          if [ -z "$USER_CONFIGS" ]; then
+            echo "Error: USER_CONFIGS secret not found. Please set it in GitHub Secrets."
+            exit 1
+          fi
+          
+          # Extract user keys from JSON (e.g., "user1", "user2", etc.)
+          USERS=$(echo "$USER_CONFIGS" | jq -r 'keys[]' | jq -R -s -c 'split("\n")[:-1]')
+          
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            INPUT_USER="${{ github.event.inputs.user }}"
+            if [ "$INPUT_USER" == "all" ] || [ -z "$INPUT_USER" ]; then
+              echo "users=$USERS" >> $GITHUB_OUTPUT
+            else
+              # Validate that the requested user exists
+              if echo "$USER_CONFIGS" | jq -e ".\"$INPUT_USER\"" > /dev/null 2>&1; then
+                echo "users=[\"$INPUT_USER\"]" >> $GITHUB_OUTPUT
+              else
+                echo "Error: User '$INPUT_USER' not found in USER_CONFIGS"
+                exit 1
+              fi
+            fi
+          else
+            echo "users=$USERS" >> $GITHUB_OUTPUT
+          fi
+
+  run-reservation:
+    needs: set-users
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        user: ${{ fromJSON(needs.set-users.outputs.users) }}
+      fail-fast: false
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          APPSPACE_HOST="${{ secrets.APPSPACE_HOST }}"
+          BOOKING_START_UTC="${{ secrets.BOOKING_START_UTC }}"
+          BOOKING_END_UTC="${{ secrets.BOOKING_END_UTC }}"
+          USER_CONFIGS='${{ secrets.USER_CONFIGS }}'
+          EOF
+
       - name: Make script executable
         run: chmod +x reserve.sh
 
-      - name: Run reservation script
+      - name: Run reservation script for ${{ matrix.user }}
         env:
-          APPSPACE_TOKEN: ${{ secrets.APPSPACE_TOKEN }}
-          RESOURCE_ID: ${{ secrets.RESOURCE_ID }}
-          ORGANIZER_ID: ${{ secrets.ORGANIZER_ID }}
-          ORGANIZER_NAME: ${{ secrets.ORGANIZER_NAME }}
-          ORGANIZER_EMAIL: ${{ secrets.ORGANIZER_EMAIL }}
-          BOOKING_START_UTC: ${{ secrets.BOOKING_START_UTC }}
-          BOOKING_END_UTC: ${{ secrets.BOOKING_END_UTC }}
-          APPSPACE_HOST: ${{ secrets.APPSPACE_HOST }}
+          USER: ${{ matrix.user }}
         run: |
           ./reserve.sh
