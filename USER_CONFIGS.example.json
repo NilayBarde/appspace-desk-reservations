@@ -1,0 +1,24 @@
+{
+  "user1": {
+    "APPSPACE_TOKEN": "your-token-here",
+    "RESOURCE_ID": "resource-id-here",
+    "ORGANIZER_ID": "organizer-id-here",
+    "ORGANIZER_NAME": "User 1 Name",
+    "ORGANIZER_EMAIL": "user1@example.com"
+  },
+  "user2": {
+    "APPSPACE_TOKEN": "another-token-here",
+    "RESOURCE_ID": "another-resource-id",
+    "ORGANIZER_ID": "another-organizer-id",
+    "ORGANIZER_NAME": "User 2 Name",
+    "ORGANIZER_EMAIL": "user2@example.com"
+  },
+  "user3": {
+    "APPSPACE_TOKEN": "user3-token-here",
+    "RESOURCE_ID": "user3-resource-id",
+    "ORGANIZER_ID": "user3-organizer-id",
+    "ORGANIZER_NAME": "User 3 Name",
+    "ORGANIZER_EMAIL": "user3@example.com"
+  }
+}
+
