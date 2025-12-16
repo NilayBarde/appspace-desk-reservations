@@ -1,0 +1,75 @@
+name: Desk Check-in Cron
+
+on:
+  schedule:
+    # Run every weekday at 8:48 AM Eastern (13:48 UTC)
+    # This checks in 12 minutes before typical 9:00 AM reservation start times
+    - cron: "48 13 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      user:
+        description: 'User to check in (user1, user2, etc., or "all")'
+        required: false
+        default: 'all'
+        type: string
+
+jobs:
+  set-users:
+    runs-on: ubuntu-latest
+    outputs:
+      users: ${{ steps.set-users.outputs.users }}
+    steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      
+      - name: Parse users from USER_CONFIGS
+        id: set-users
+        env:
+          USER_CONFIGS: ${{ secrets.USER_CONFIGS }}
+        run: |
+          if [ -z "$USER_CONFIGS" ]; then
+            echo "Error: USER_CONFIGS secret not found"
+            exit 1
+          fi
+          
+          ALL_USERS=$(echo "$USER_CONFIGS" | jq -r 'keys[]' | jq -R -s -c 'split("\n")[:-1]')
+          
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.user }}" ] && [ "${{ github.event.inputs.user }}" != "all" ]; then
+            USER="${{ github.event.inputs.user }}"
+            if echo "$USER_CONFIGS" | jq -e ".\"$USER\"" > /dev/null 2>&1; then
+              echo "users=[\"$USER\"]" >> $GITHUB_OUTPUT
+            else
+              echo "Error: User '$USER' not found in USER_CONFIGS"
+              exit 1
+            fi
+          else
+            echo "users=$ALL_USERS" >> $GITHUB_OUTPUT
+          fi
+
+  run-checkin:
+    needs: set-users
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        user: ${{ fromJSON(needs.set-users.outputs.users) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Setup environment
+        run: |
+          cat > .env << EOF
+          APPSPACE_HOST="${{ secrets.APPSPACE_HOST }}"
+          USER_CONFIGS='${{ secrets.USER_CONFIGS }}'
+          EOF
+
+      - name: Run check-in for ${{ matrix.user }}
+        env:
+          USER: ${{ matrix.user }}
+        run: |
+          chmod +x checkin.sh
+          ./checkin.sh
