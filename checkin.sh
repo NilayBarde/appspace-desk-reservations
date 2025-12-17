@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Auto-check-in for today's reservations
-# Checks in 12 minutes before reservation start time
+# Checks in events between 15 minutes before and 15 minutes after start time
+# Job runs at 12 minutes before start (e.g., 8:48am for 9:00am reservation)
 
 # Load .env file
 CONFIG_FILE=".env"
@@ -70,8 +71,8 @@ checkin_for_user() {
   # Calculate current time in seconds since epoch
   now_epoch=$(date -u +%s)
   
-  # Extract events that need check-in - 12 minutes before start time only
-  # Check-in window: exactly 12 minutes before reservation start time (-720 to -660 seconds)
+  # Extract events that need check-in
+  # Check-in window: between 15 minutes before and 15 minutes after start time (-900 to +900 seconds)
   # Skip events that are already checked in (status "Active" means already checked in)
   event_data=$(echo "$events_json" | jq --arg now "$now_epoch" '
     [.items[]? | 
@@ -80,7 +81,7 @@ checkin_for_user() {
     .startAt as $startAt |
     ($startAt | fromdateiso8601) as $startEpoch |
     (($now | tonumber) - $startEpoch) as $diffSeconds |
-    select($diffSeconds >= -720 and $diffSeconds <= -660) |
+    select($diffSeconds >= -900 and $diffSeconds <= 900) |
     {id: .id, startAt: .startAt, resourceIds: .resourceIds, diffMinutes: ($diffSeconds / 60 | floor)}]
   ')
   
@@ -88,12 +89,12 @@ checkin_for_user() {
   
   if [[ -z "$event_ids" ]]; then
     event_count=$(echo "$events_json" | jq '.items | length')
-    echo "No events found for check-in (need to be 12 min before start and not already checked in). Found $event_count total events for today." | tee -a "$LOG_FILE"
+    echo "No events found for check-in (need to be within 15 min before/after start and not already checked in). Found $event_count total events for today." | tee -a "$LOG_FILE"
     return 0
   fi
   
   event_count=$(echo "$event_ids" | wc -l | tr -d ' ')
-  echo "Found $event_count event(s) ready for check-in (12 minutes before start)" | tee -a "$LOG_FILE"
+  echo "Found $event_count event(s) ready for check-in (within 15 min before/after start)" | tee -a "$LOG_FILE"
   
   # Loop through events and check in
   for event_id in $event_ids; do
@@ -101,7 +102,12 @@ checkin_for_user() {
     start_at_time=$(echo "$event_info" | jq -r '.startAt')
     diff_minutes=$(echo "$event_info" | jq -r '.diffMinutes')
     
-    echo "Checking in for event $event_id (${diff_minutes#-} minutes before start at $start_at_time)" | tee -a "$LOG_FILE"
+    if [[ $diff_minutes -lt 0 ]]; then
+      time_desc="${diff_minutes#-} minutes before start"
+    else
+      time_desc="$diff_minutes minutes after start"
+    fi
+    echo "Checking in for event $event_id ($time_desc at $start_at_time)" | tee -a "$LOG_FILE"
     
     # Get resource IDs from event data, fallback to user's RESOURCE_ID
     resource_ids=$(echo "$event_info" | jq -r '.resourceIds')
