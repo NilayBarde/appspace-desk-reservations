@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       user:
-        description: 'User to run (user1, user2, etc., or "all")'
+        description: 'User to run (enter their email address or "all")'
         required: false
         default: 'all'
         type: string

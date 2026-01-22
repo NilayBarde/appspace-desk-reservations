@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       user:
-        description: 'User to check in (user1, user2, etc., or "all")'
+        description: 'User to check in (enter their email address or "all")'
         required: false
         default: 'all'
         type: string
