@@ -15,9 +15,15 @@ on:
 jobs:
   set-users:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     outputs:
       users: ${{ steps.set-users.outputs.users }}
     steps:
+      - name: Install jq
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends jq
+      
       - name: Parse users from USER_CONFIGS
         id: set-users
         env:
@@ -45,16 +51,22 @@ jobs:
   run-reservation:
     needs: set-users
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         user: ${{ fromJSON(needs.set-users.outputs.users) }}
       fail-fast: false
+      max-parallel: 20  # Limit concurrent jobs (free tier allows 20)
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # Shallow clone for faster checkout
 
       - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends jq
 
       - name: Setup environment
         run: |
@@ -68,6 +80,16 @@ jobs:
       - name: Run reservation for ${{ matrix.user }}
         env:
           USER: ${{ matrix.user }}
+        continue-on-error: true  # Continue even if this step fails
         run: |
           chmod +x reserve.sh
-          ./reserve.sh
+          ./reserve.sh || {
+            echo "::error::Reservation failed for user ${{ matrix.user }}"
+            exit 1
+          }
+
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::warning::Reservation job failed for user ${{ matrix.user }}"
+          echo "Check logs above for details"
