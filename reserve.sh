@@ -20,6 +20,9 @@ fi
 
 LOG_FILE="./desk_reservation.log"
 
+# Desk lookup file path
+DESK_LOOKUP_FILE="./DESK_LOOKUP.json"
+
 # Helper function to extract and export user config from USER_CONFIGS
 load_user_config() {
   local user="$1"
@@ -31,10 +34,27 @@ load_user_config() {
   fi
   
   export APPSPACE_TOKEN=$(echo "$user_config" | jq -r '.APPSPACE_TOKEN // empty')
-  export RESOURCE_ID=$(echo "$user_config" | jq -r '.RESOURCE_ID // empty')
   export ORGANIZER_ID=$(echo "$user_config" | jq -r '.ORGANIZER_ID // empty')
   export ORGANIZER_NAME=$(echo "$user_config" | jq -r '.ORGANIZER_NAME // empty')
   export ORGANIZER_EMAIL=$(echo "$user_config" | jq -r '.ORGANIZER_EMAIL // empty')
+  
+  # Look up RESOURCE_ID from desk name (read directly from file to avoid env size limits)
+  local desk_name=$(echo "$user_config" | jq -r '.DESK_NAME // empty')
+  if [[ -n "$desk_name" ]]; then
+    if [[ ! -f "$DESK_LOOKUP_FILE" ]]; then
+      echo "Error: DESK_LOOKUP.json not found. Ensure it exists." >&2
+      return 1
+    fi
+    export RESOURCE_ID=$(jq -r ".\"$desk_name\" // empty" "$DESK_LOOKUP_FILE")
+    if [[ -z "$RESOURCE_ID" ]]; then
+      echo "Error: Desk '$desk_name' not found in DESK_LOOKUP" >&2
+      return 1
+    fi
+    echo "Resolved desk '$desk_name' to resource ID: $RESOURCE_ID" >&2
+  else
+    # Fallback: support legacy RESOURCE_ID for backwards compatibility
+    export RESOURCE_ID=$(echo "$user_config" | jq -r '.RESOURCE_ID // empty')
+  fi
   
   # Validate required fields
   : "${APPSPACE_TOKEN:?Missing APPSPACE_TOKEN for user $user}"

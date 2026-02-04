@@ -35,6 +35,9 @@ echo "Testing USER_CONFIGS validation..."
 echo "=================================="
 echo ""
 
+# Save USER_CONFIGS if already set (e.g., passed from command line)
+EXISTING_USER_CONFIGS="$USER_CONFIGS"
+
 # Load .env file if it exists
 CONFIG_FILE=".env"
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -50,6 +53,11 @@ if [[ -f "$CONFIG_FILE" ]]; then
   done < "$CONFIG_FILE"
   set +o allexport
   echo ""
+fi
+
+# Restore USER_CONFIGS if it was passed explicitly (takes priority over .env)
+if [[ -n "$EXISTING_USER_CONFIGS" ]]; then
+  export USER_CONFIGS="$EXISTING_USER_CONFIGS"
 fi
 
 # Test 1: Check if USER_CONFIGS is set
@@ -88,8 +96,19 @@ else
   test_pass "USER_CONFIGS contains $USER_COUNT user(s)"
 fi
 
+# Check desk lookup file exists
+DESK_LOOKUP_FILE="./DESK_LOOKUP.json"
+DESK_LOOKUP_AVAILABLE=false
+if [[ -f "$DESK_LOOKUP_FILE" ]]; then
+  DESK_LOOKUP_AVAILABLE=true
+  test_pass "DESK_LOOKUP.json found"
+else
+  test_warn "DESK_LOOKUP.json not found (required if using DESK_NAME instead of RESOURCE_ID)"
+fi
+
 # Test 5: Validate each user has required fields
-REQUIRED_FIELDS=("APPSPACE_TOKEN" "RESOURCE_ID" "ORGANIZER_ID" "ORGANIZER_NAME" "ORGANIZER_EMAIL")
+# Note: Either DESK_NAME (with lookup) or RESOURCE_ID is required
+REQUIRED_FIELDS=("APPSPACE_TOKEN" "ORGANIZER_ID" "ORGANIZER_NAME" "ORGANIZER_EMAIL")
 ALL_USERS=$(echo "$USER_CONFIGS" | jq -r 'keys[]')
 
 for user in $ALL_USERS; do
@@ -116,6 +135,32 @@ for user in $ALL_USERS; do
     fi
   done
   
+  # Check for DESK_NAME or RESOURCE_ID (one is required)
+  DESK_NAME=$(echo "$USER_CONFIG" | jq -r '.DESK_NAME // empty')
+  RESOURCE_ID=$(echo "$USER_CONFIG" | jq -r '.RESOURCE_ID // empty')
+  
+  if [[ -n "$DESK_NAME" ]]; then
+    test_pass "User '$user' has DESK_NAME: $DESK_NAME"
+    # Verify desk exists in lookup (read directly from file)
+    if [[ "$DESK_LOOKUP_AVAILABLE" == true ]]; then
+      RESOLVED_ID=$(jq -r ".\"$DESK_NAME\" // empty" "$DESK_LOOKUP_FILE")
+      if [[ -n "$RESOLVED_ID" ]]; then
+        test_pass "User '$user' DESK_NAME '$DESK_NAME' resolved to: $RESOLVED_ID"
+        RESOURCE_ID="$RESOLVED_ID"
+      else
+        test_fail "User '$user' DESK_NAME '$DESK_NAME' not found in DESK_LOOKUP.json"
+        USER_VALID=false
+      fi
+    else
+      test_warn "User '$user' has DESK_NAME but DESK_LOOKUP.json not available to verify"
+    fi
+  elif [[ -n "$RESOURCE_ID" ]]; then
+    test_pass "User '$user' has RESOURCE_ID (legacy format)"
+  else
+    test_fail "User '$user' is missing DESK_NAME or RESOURCE_ID (one is required)"
+    USER_VALID=false
+  fi
+  
   # Test 6: Validate field formats
   if [[ "$USER_VALID" == true ]]; then
     # Check email format (basic validation)
@@ -128,7 +173,6 @@ for user in $ALL_USERS; do
     
     # Check IDs are UUIDs (basic validation - should be 36 chars with dashes)
     TOKEN=$(echo "$USER_CONFIG" | jq -r '.APPSPACE_TOKEN')
-    RESOURCE_ID=$(echo "$USER_CONFIG" | jq -r '.RESOURCE_ID')
     ORGANIZER_ID=$(echo "$USER_CONFIG" | jq -r '.ORGANIZER_ID')
     
     UUID_PATTERN="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -139,9 +183,10 @@ for user in $ALL_USERS; do
       test_pass "User '$user' APPSPACE_TOKEN format is valid"
     fi
     
-    if [[ ! "$RESOURCE_ID" =~ $UUID_PATTERN ]]; then
-      test_warn "User '$user' RESOURCE_ID format may be invalid (expected UUID format)"
-    else
+    # Validate RESOURCE_ID format (either from DESK_NAME lookup or direct)
+    if [[ -n "$RESOURCE_ID" ]] && [[ ! "$RESOURCE_ID" =~ $UUID_PATTERN ]]; then
+      test_warn "User '$user' resolved RESOURCE_ID format may be invalid (expected UUID format)"
+    elif [[ -n "$RESOURCE_ID" ]]; then
       test_pass "User '$user' RESOURCE_ID format is valid"
     fi
     
@@ -159,10 +204,16 @@ echo "Testing script compatibility..."
 if echo "$USER_CONFIGS" | jq -r 'keys[]' | head -1 | while read -r test_user; do
   USER_CONFIG=$(echo "$USER_CONFIGS" | jq -r ".\"$test_user\"")
   APPSPACE_TOKEN=$(echo "$USER_CONFIG" | jq -r '.APPSPACE_TOKEN // empty')
+  DESK_NAME=$(echo "$USER_CONFIG" | jq -r '.DESK_NAME // empty')
   RESOURCE_ID=$(echo "$USER_CONFIG" | jq -r '.RESOURCE_ID // empty')
   ORGANIZER_ID=$(echo "$USER_CONFIG" | jq -r '.ORGANIZER_ID // empty')
   ORGANIZER_NAME=$(echo "$USER_CONFIG" | jq -r '.ORGANIZER_NAME // empty')
   ORGANIZER_EMAIL=$(echo "$USER_CONFIG" | jq -r '.ORGANIZER_EMAIL // empty')
+  
+  # Resolve DESK_NAME to RESOURCE_ID if needed (read directly from file)
+  if [[ -n "$DESK_NAME" ]] && [[ "$DESK_LOOKUP_AVAILABLE" == true ]]; then
+    RESOURCE_ID=$(jq -r ".\"$DESK_NAME\" // empty" "$DESK_LOOKUP_FILE")
+  fi
   
   if [[ -n "$APPSPACE_TOKEN" ]] && [[ -n "$RESOURCE_ID" ]] && [[ -n "$ORGANIZER_ID" ]] && [[ -n "$ORGANIZER_NAME" ]] && [[ -n "$ORGANIZER_EMAIL" ]]; then
     test_pass "USER_CONFIGS is compatible with script functions (tested with user: $test_user)"

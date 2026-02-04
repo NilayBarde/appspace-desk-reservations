@@ -1,24 +1,16 @@
 {
-  "user1": {
+  "user1@example.com": {
     "APPSPACE_TOKEN": "your-token-here",
-    "RESOURCE_ID": "resource-id-here",
+    "DESK_NAME": "08W-125-H",
     "ORGANIZER_ID": "organizer-id-here",
     "ORGANIZER_NAME": "User 1 Name",
     "ORGANIZER_EMAIL": "user1@example.com"
   },
-  "user2": {
+  "user2@example.com": {
     "APPSPACE_TOKEN": "another-token-here",
-    "RESOURCE_ID": "another-resource-id",
+    "DESK_NAME": "08W-126-A",
     "ORGANIZER_ID": "another-organizer-id",
     "ORGANIZER_NAME": "User 2 Name",
     "ORGANIZER_EMAIL": "user2@example.com"
-  },
-  "user3": {
-    "APPSPACE_TOKEN": "user3-token-here",
-    "RESOURCE_ID": "user3-resource-id",
-    "ORGANIZER_ID": "user3-organizer-id",
-    "ORGANIZER_NAME": "User 3 Name",
-    "ORGANIZER_EMAIL": "user3@example.com"
   }
 }
-
