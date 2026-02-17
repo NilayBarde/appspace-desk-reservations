@@ -2,8 +2,8 @@ name: Desk Check-in Cron
 
 on:
   schedule:
-    # Run every weekday at 8:48 AM Eastern (13:48 UTC)
-    # This checks in 12 minutes before typical 9:00 AM reservation start times
+    # Run at 8:48 AM EST (9:48 AM EDT during daylight saving)
+    # 12 minutes before typical 9:00 AM reservation start time
     - cron: "48 13 * * 1-5"
   workflow_dispatch:
     inputs:
@@ -57,12 +57,12 @@ jobs:
       matrix:
         user: ${{ fromJSON(needs.set-users.outputs.users) }}
       fail-fast: false
-      max-parallel: 20  # Limit concurrent jobs (free tier allows 20)
+      max-parallel: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # Shallow clone for faster checkout
+          fetch-depth: 1
 
       - name: Install jq
         run: |
@@ -79,7 +79,7 @@ jobs:
       - name: Run check-in for ${{ matrix.user }}
         env:
           USER: ${{ matrix.user }}
-        continue-on-error: true  # Continue even if this step fails
+        continue-on-error: true
         run: |
           chmod +x checkin.sh
           ./checkin.sh || {

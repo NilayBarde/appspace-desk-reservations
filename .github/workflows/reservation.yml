@@ -2,8 +2,8 @@ name: Desk Reservation Cron
 
 on:
   schedule:
-    - cron: "1 14 * * 1-5" # 9:01 AM Eastern (Winter EST)
-    - cron: "1 13 * * 1-5" # 9:01 AM Eastern (Summer EDT)
+    # Run at 9:01 AM EST (10:01 AM EDT during daylight saving)
+    - cron: "1 14 * * 1-5"
   workflow_dispatch:
     inputs:
       user:
@@ -56,12 +56,12 @@ jobs:
       matrix:
         user: ${{ fromJSON(needs.set-users.outputs.users) }}
       fail-fast: false
-      max-parallel: 20  # Limit concurrent jobs (free tier allows 20)
+      max-parallel: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # Shallow clone for faster checkout
+          fetch-depth: 1
 
       - name: Install jq
         run: |
@@ -80,7 +80,7 @@ jobs:
       - name: Run reservation for ${{ matrix.user }}
         env:
           USER: ${{ matrix.user }}
-        continue-on-error: true  # Continue even if this step fails
+        continue-on-error: true
         run: |
           chmod +x reserve.sh
           ./reserve.sh || {
