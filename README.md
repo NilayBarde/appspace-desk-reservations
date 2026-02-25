@@ -105,6 +105,7 @@ USER_CONFIGS='{"user1@disney.com":{"APPSPACE_TOKEN":"...","DESK_NAME":"08W-125-H
 The `DESK_LOOKUP.json` file maps human-readable desk names to their resource IDs. This file is auto-generated from the Appspace API.
 
 **Format:**
+
 ```json
 {
   "08W-125-H": "4287c413-3c0a-4f9d-8865-ed80e54ff82d",
@@ -156,15 +157,16 @@ The `DESK_LOOKUP.json` file maps human-readable desk names to their resource IDs
 })();
 ```
 
-4. Save the downloaded file to your project directory
+1. Save the downloaded file to your project directory
 
 ### Getting User Configuration from Browser
 
 To get a new user's configuration:
 
 1. Have the user log into Appspace in their browser
-2. Open browser DevTools console (F12)
-3. Paste and run:
+2. Open browser DevTools console (F12) or right click and click inspect
+3. Go to the console tab
+4. Paste and run:
 
 ```javascript
 const getUser = () => {
@@ -190,8 +192,8 @@ console.log(JSON.stringify({
 }, null, 2));
 ```
 
-4. Replace `REPLACE_WITH_DESK_NAME` with the user's desk name (e.g., `08W-125-H`)
-5. Add the output to your `USER_CONFIGS.json`
+1. Replace `REPLACE_WITH_DESK_NAME` with the user's desk name (e.g., `08W-125-H`)
+2. Add the output to your `USER_CONFIGS.json`
 
 ## Usage
 
