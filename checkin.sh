@@ -141,7 +141,18 @@ checkin_for_user() {
       -H "content-type: application/json;charset=UTF-8" \
       -H "token: $APPSPACE_TOKEN" \
       --data-raw "{\"resourceIds\": $resource_ids}")
-    echo "Response: $checkin_response" | tee -a "$LOG_FILE"
+
+    # Check for API errors in response
+    local checkin_error
+    checkin_error=$(echo "$checkin_response" | jq -r '.Code // empty' 2>/dev/null)
+
+    if [[ -n "$checkin_error" ]]; then
+      local checkin_error_message
+      checkin_error_message=$(echo "$checkin_response" | jq -r '.Message // "Unknown error"' 2>/dev/null)
+      echo "ERROR: Check-in failed for event $event_id - $checkin_error: $checkin_error_message" | tee -a "$LOG_FILE" >&2
+    else
+      echo "SUCCESS: Checked in for event $event_id" | tee -a "$LOG_FILE"
+    fi
     echo "-----" | tee -a "$LOG_FILE"
   done
 }

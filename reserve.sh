@@ -71,7 +71,8 @@ reserve_day() {
   local date="$1"
   echo "Attempting reservation for $date" | tee -a "$LOG_FILE"
 
-  curl --location "$APPSPACE_HOST/api/v3/reservation/reservations" \
+  local response
+  response=$(curl -s --location "$APPSPACE_HOST/api/v3/reservation/reservations" \
     --header "content-type: application/json;charset=UTF-8" \
     --header "accept: application/json" \
     --header "token: $APPSPACE_TOKEN" \
@@ -100,8 +101,28 @@ reserve_day() {
       \"isAllDay\": false,
       \"startTimeZone\": \"America/New_York\",
       \"endTimeZone\": \"America/New_York\"
-    }"
+    }")
 
+  # Check for API errors in response
+  local error_code
+  error_code=$(echo "$response" | jq -r '.Code // empty' 2>/dev/null)
+
+  if [[ -n "$error_code" ]]; then
+    local error_message
+    error_message=$(echo "$response" | jq -r '.Message // "Unknown error"' 2>/dev/null)
+    echo "ERROR: $date - $error_code: $error_message" | tee -a "$LOG_FILE" >&2
+    return 1
+  fi
+
+  # Check for "already reserved" message (not an error)
+  local info_message
+  info_message=$(echo "$response" | jq -r '.message // empty' 2>/dev/null)
+
+  if [[ -n "$info_message" ]]; then
+    echo "SKIPPED: $date - $info_message" | tee -a "$LOG_FILE"
+  else
+    echo "SUCCESS: $date - Reserved" | tee -a "$LOG_FILE"
+  fi
   echo "-----" | tee -a "$LOG_FILE"
 }
 
