@@ -1,4 +1,3 @@
 .env
-desk_reservation.log
 *.log
 USER_CONFIGS.json

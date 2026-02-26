@@ -20,23 +20,30 @@ jobs:
     outputs:
       users: ${{ steps.set-users.outputs.users }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Install jq
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends jq
-      
-      - name: Parse users from USER_CONFIGS
-        id: set-users
+
+      - name: Fetch users from Google Sheet
         env:
-          USER_CONFIGS: ${{ secrets.USER_CONFIGS }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: |
-          if [ -z "$USER_CONFIGS" ]; then
-            echo "Error: USER_CONFIGS secret not found"
-            exit 1
-          fi
-          
+          chmod +x fetch_users.sh
+          ./fetch_users.sh ./USER_CONFIGS.json
+
+      - name: Parse users
+        id: set-users
+        run: |
+          USER_CONFIGS=$(cat ./USER_CONFIGS.json)
+
           ALL_USERS=$(echo "$USER_CONFIGS" | jq -r 'keys[]' | jq -R -s -c 'split("\n")[:-1]')
-          
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.user }}" ] && [ "${{ github.event.inputs.user }}" != "all" ]; then
             USER="${{ github.event.inputs.user }}"
             if echo "$USER_CONFIGS" | jq -e ".\"$USER\"" > /dev/null 2>&1; then
@@ -69,19 +76,14 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends jq
 
-      - name: Setup environment
-        run: |
-          cat > .env << EOF
-          APPSPACE_HOST="${{ secrets.APPSPACE_HOST }}"
-          USER_CONFIGS='${{ secrets.USER_CONFIGS }}'
-          EOF
-
       - name: Run check-in for ${{ matrix.user }}
         env:
-          USER: ${{ matrix.user }}
+          APPSPACE_HOST: ${{ secrets.APPSPACE_HOST }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          RESERVATION_USER: ${{ matrix.user }}
         continue-on-error: true
         run: |
-          chmod +x checkin.sh
+          chmod +x checkin.sh fetch_users.sh
           ./checkin.sh || {
             echo "::error::Check-in failed for user ${{ matrix.user }}"
             exit 1

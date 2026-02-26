@@ -23,6 +23,19 @@ LOG_FILE="./desk_reservation.log"
 # Desk lookup file path
 DESK_LOOKUP_FILE="./DESK_LOOKUP.json"
 
+# Fetch latest user configs from Google Sheet (if GOOGLE_SHEET_ID is set)
+FETCH_SCRIPT="$(dirname "${BASH_SOURCE[0]}")/fetch_users.sh"
+USER_CONFIGS_FILE="./USER_CONFIGS.json"
+if [[ -n "${GOOGLE_SHEET_ID:-}" ]] && [[ -x "$FETCH_SCRIPT" ]]; then
+  "$FETCH_SCRIPT" "$USER_CONFIGS_FILE" || echo "WARNING: Failed to fetch from Google Sheet, using existing $USER_CONFIGS_FILE" >&2
+fi
+
+# Load USER_CONFIGS from JSON file if not already set via env
+if [[ -z "${USER_CONFIGS:-}" ]] && [[ -f "$USER_CONFIGS_FILE" ]]; then
+  USER_CONFIGS=$(cat "$USER_CONFIGS_FILE")
+  echo "Loaded USER_CONFIGS from $USER_CONFIGS_FILE" >&2
+fi
+
 # Helper function to extract and export user config from USER_CONFIGS
 load_user_config() {
   local user="$1"

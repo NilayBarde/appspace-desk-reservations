@@ -6,6 +6,8 @@
 # Don't exit on error initially - we want to report all test failures
 set +e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -35,14 +37,10 @@ echo "Testing USER_CONFIGS validation..."
 echo "=================================="
 echo ""
 
-# Save USER_CONFIGS if already set (e.g., passed from command line)
-EXISTING_USER_CONFIGS="$USER_CONFIGS"
-
-# Load .env file if it exists
-CONFIG_FILE=".env"
+# Load .env for GOOGLE_SHEET_ID and other vars
+CONFIG_FILE="$SCRIPT_DIR/.env"
 if [[ -f "$CONFIG_FILE" ]]; then
   echo "Loading environment from $CONFIG_FILE"
-  set -o allexport
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
     [[ -z "${line// }" ]] && continue
@@ -51,19 +49,33 @@ if [[ -f "$CONFIG_FILE" ]]; then
     line="${line%"${line##*[![:space:]]}"}"
     [[ -n "$line" ]] && eval "export $line" 2>/dev/null || true
   done < "$CONFIG_FILE"
-  set +o allexport
   echo ""
 fi
 
-# Restore USER_CONFIGS if it was passed explicitly (takes priority over .env)
-if [[ -n "$EXISTING_USER_CONFIGS" ]]; then
-  export USER_CONFIGS="$EXISTING_USER_CONFIGS"
+# Try to fetch from Google Sheet first
+USER_CONFIGS_FILE="$SCRIPT_DIR/USER_CONFIGS.json"
+FETCH_SCRIPT="$SCRIPT_DIR/fetch_users.sh"
+
+if [[ -n "${GOOGLE_SHEET_ID:-}" ]] && [[ -x "$FETCH_SCRIPT" ]]; then
+  echo "Fetching latest users from Google Sheet..."
+  if "$FETCH_SCRIPT" "$USER_CONFIGS_FILE"; then
+    test_pass "Fetched USER_CONFIGS from Google Sheet"
+  else
+    test_warn "Failed to fetch from Google Sheet, using existing $USER_CONFIGS_FILE"
+  fi
+  echo ""
+fi
+
+# Load USER_CONFIGS from file if not already set
+if [[ -z "${USER_CONFIGS:-}" ]] && [[ -f "$USER_CONFIGS_FILE" ]]; then
+  USER_CONFIGS=$(cat "$USER_CONFIGS_FILE")
+  echo "Loaded USER_CONFIGS from $USER_CONFIGS_FILE"
 fi
 
 # Test 1: Check if USER_CONFIGS is set
-if [[ -z "$USER_CONFIGS" ]]; then
+if [[ -z "${USER_CONFIGS:-}" ]]; then
   test_fail "USER_CONFIGS is not set"
-  echo "  Set USER_CONFIGS in your .env file or export it as an environment variable"
+  echo "  Set GOOGLE_SHEET_ID in .env, or create USER_CONFIGS.json, or run fetch_users.sh"
   exit 1
 else
   test_pass "USER_CONFIGS is set"
@@ -97,7 +109,7 @@ else
 fi
 
 # Check desk lookup file exists
-DESK_LOOKUP_FILE="./DESK_LOOKUP.json"
+DESK_LOOKUP_FILE="$SCRIPT_DIR/DESK_LOOKUP.json"
 DESK_LOOKUP_AVAILABLE=false
 if [[ -f "$DESK_LOOKUP_FILE" ]]; then
   DESK_LOOKUP_AVAILABLE=true
@@ -240,4 +252,3 @@ else
   echo -e "${GREEN}All tests passed! USER_CONFIGS is valid and ready to use.${NC}"
   exit 0
 fi
-

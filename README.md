@@ -7,6 +7,7 @@ Automated desk reservation and check-in system for Appspace. This project automa
 - 🤖 **Automated Reservations**: Automatically reserves desks for weekdays (Monday-Friday) up to 7 days in advance
 - ✅ **Auto Check-in**: Automatically checks in for reservations within a 15-minute window before/after start time
 - 👥 **Multi-User Support**: Manage multiple users with individual desk assignments
+- 📊 **Google Sheets Integration**: Users self-serve by adding their data to a shared Google Sheet
 - 🪑 **Desk Name Lookup**: Use human-readable desk names instead of UUIDs
 - 🔄 **GitHub Actions Integration**: Fully automated workflows for reservations and check-ins
 - ✅ **Validation**: Test script to validate configuration before deployment
@@ -33,7 +34,7 @@ Automated desk reservation and check-in system for Appspace. This project automa
 2. Make scripts executable:
 
    ```bash
-   chmod +x reserve.sh checkin.sh test_user_configs.sh
+   chmod +x reserve.sh checkin.sh fetch_users.sh test_user_configs.sh
    ```
 
 3. Install `jq` if not already installed:
@@ -53,7 +54,11 @@ Automated desk reservation and check-in system for Appspace. This project automa
 
 ### Local Setup (.env file)
 
-Create a `.env` file in the project root with the following variables:
+Copy `.env.example` to `.env` and fill in the values:
+
+```bash
+cp .env.example .env
+```
 
 ```bash
 # Appspace API endpoint
@@ -61,23 +66,42 @@ APPSPACE_HOST="https://disney.cloud.appspace.com"
 
 # Booking time range (UTC)
 BOOKING_START_UTC="14:00:00.000Z"  # 9:00 AM Eastern
-BOOKING_END_UTC="22:00:00.000Z"     # 5:00 PM Eastern
+BOOKING_END_UTC="22:00:00.000Z"    # 5:00 PM Eastern
 
-# User configurations (JSON string - see USER_CONFIGS section)
-USER_CONFIGS='{"user1@disney.com":{"APPSPACE_TOKEN":"...","DESK_NAME":"08W-125-H","ORGANIZER_ID":"...","ORGANIZER_NAME":"...","ORGANIZER_EMAIL":"..."}}'
+# Google Sheet ID — the long string in your sheet URL
+GOOGLE_SHEET_ID="your-google-sheet-id-here"
 ```
 
-### USER_CONFIGS Format
+### Google Sheet Setup
 
-`USER_CONFIGS` is a JSON object containing user configurations. Each user requires:
+User configuration is managed via a **public Google Sheet**. Users add their own data to the sheet, and the scripts automatically fetch the latest data before each run.
 
-- `APPSPACE_TOKEN`: Authentication token for the Appspace API
-- `DESK_NAME`: Human-readable desk name (e.g., `08W-125-H`) - looked up in `DESK_LOOKUP.json`
-- `ORGANIZER_ID`: User's organizer ID
-- `ORGANIZER_NAME`: User's full name
-- `ORGANIZER_EMAIL`: User's email address
+**Required columns** (in order):
 
-**Example:**
+| Name | Email | Desk | Appspace Token | Organizer ID |
+|------|-------|------|----------------|--------------|
+| John Doe | <john.doe@disney.com> | 08W-125-H | abc-123-... | def-456-... |
+
+**Rules:**
+
+- Rows missing **Organizer ID** or **Appspace Token** are automatically skipped
+- The sheet must be **publicly accessible** (anyone with the link can view)
+- The `GOOGLE_SHEET_ID` is the long string in your sheet URL: `https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit`
+
+### How fetch_users.sh Works
+
+The `fetch_users.sh` script:
+
+1. Downloads the Google Sheet as CSV via `https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv`
+2. Parses each row and maps columns to the `USER_CONFIGS.json` format
+3. Skips incomplete rows (missing Organizer ID or Appspace Token)
+4. Writes the result to `USER_CONFIGS.json`
+
+Both `reserve.sh` and `checkin.sh` call `fetch_users.sh` automatically when `GOOGLE_SHEET_ID` is set. If the fetch fails (e.g., no network), they fall back to the existing `USER_CONFIGS.json`.
+
+### USER_CONFIGS.json Format
+
+The auto-generated `USER_CONFIGS.json` looks like this (see `USER_CONFIGS.example.json` for a template):
 
 ```json
 {
@@ -87,18 +111,9 @@ USER_CONFIGS='{"user1@disney.com":{"APPSPACE_TOKEN":"...","DESK_NAME":"08W-125-H
     "ORGANIZER_ID": "organizer-id",
     "ORGANIZER_NAME": "John Doe",
     "ORGANIZER_EMAIL": "john.doe@disney.com"
-  },
-  "jane.smith@disney.com": {
-    "APPSPACE_TOKEN": "another-token",
-    "DESK_NAME": "08W-126-A",
-    "ORGANIZER_ID": "another-organizer-id",
-    "ORGANIZER_NAME": "Jane Smith",
-    "ORGANIZER_EMAIL": "jane.smith@disney.com"
   }
 }
 ```
-
-**Note:** For GitHub Actions, `USER_CONFIGS` must be a single-line JSON string (no newlines). Use `cat USER_CONFIGS.json | jq -c .` to get the single-line format.
 
 ### DESK_LOOKUP.json
 
@@ -161,7 +176,7 @@ The `DESK_LOOKUP.json` file maps human-readable desk names to their resource IDs
 
 ### Getting User Configuration from Browser
 
-To get a new user's configuration:
+To get a new user's Appspace Token and Organizer ID:
 
 1. Have the user log into Appspace in their browser
 2. Open browser DevTools console (F12) or right click and click inspect
@@ -181,19 +196,13 @@ const getUser = () => {
 };
 
 const user = getUser();
-console.log(JSON.stringify({
-    [user.email.toLowerCase()]: {
-        "APPSPACE_TOKEN": user.token,
-        "DESK_NAME": "REPLACE_WITH_DESK_NAME",
-        "ORGANIZER_ID": user.userId,
-        "ORGANIZER_NAME": user.name,
-        "ORGANIZER_EMAIL": user.email
-    }
-}, null, 2));
+console.log(`Name: ${user.name}`);
+console.log(`Email: ${user.email}`);
+console.log(`Appspace Token: ${user.token}`);
+console.log(`Organizer ID: ${user.userId}`);
 ```
 
-1. Replace `REPLACE_WITH_DESK_NAME` with the user's desk name (e.g., `08W-125-H`)
-2. Add the output to your `USER_CONFIGS.json`
+1. The user then adds this information to the Google Sheet
 
 ## Usage
 
@@ -225,6 +234,14 @@ Check in for all users:
 
 ```bash
 ./checkin.sh
+```
+
+### Fetch Users Only
+
+Refresh `USER_CONFIGS.json` from the Google Sheet without running reservations:
+
+```bash
+./fetch_users.sh
 ```
 
 ### Testing Configuration
@@ -267,14 +284,13 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
    22:00:00.000Z
    ```
 
-4. **`USER_CONFIGS`**: Single-line JSON string with all user configurations
+4. **`GOOGLE_SHEET_ID`**: The ID of your public Google Sheet
 
-   ```bash
-   # Get single-line format:
-   cat USER_CONFIGS.json | jq -c .
+   ```
+   1WkSm3QjQyuWviPcpgH1H3adxKpV4v3pKu4_LjVTosJk
    ```
 
-   **Important:** Paste the JSON string directly without quotes. The workflow adds quotes automatically.
+> **Note:** The `USER_CONFIGS` secret is no longer needed. User data is fetched dynamically from the Google Sheet at runtime.
 
 ### Workflows
 
@@ -311,22 +327,30 @@ appspace-desk-reservations/
 │       ├── reservation.yml       # Automated reservation workflow
 │       └── checkin.yml           # Automated check-in workflow
 ├── .env                          # Local environment variables (gitignored)
+├── .env.example                  # Example environment variables template
 ├── .gitignore                    # Git ignore rules
 ├── checkin.sh                    # Check-in script
+├── fetch_users.sh                # Fetches user data from Google Sheet
 ├── reserve.sh                    # Reservation script
 ├── test_user_configs.sh          # Configuration validation script
 ├── DESK_LOOKUP.json              # Desk name → resource ID mapping
 ├── USER_CONFIGS.example.json     # Example user configuration template
-├── USER_CONFIGS.json             # Actual user configurations (gitignored)
-├── desk_checkin.log              # Check-in activity log (gitignored)
-└── desk_reservation.log          # Reservation activity log (gitignored)
+├── USER_CONFIGS.json             # Auto-generated from Google Sheet (gitignored)
+└── README.md                     # This file
 ```
 
 ## How It Works
 
+### User Data Flow
+
+1. Users add their data to the shared Google Sheet
+2. `fetch_users.sh` downloads the sheet as CSV and converts it to `USER_CONFIGS.json`
+3. `reserve.sh` and `checkin.sh` call `fetch_users.sh` before loading configs
+4. If the fetch fails, scripts fall back to the existing `USER_CONFIGS.json`
+
 ### Reservation Process
 
-1. Script loads user configurations from `USER_CONFIGS`
+1. Script fetches latest user configs from Google Sheet
 2. Script loads desk mappings from `DESK_LOOKUP.json`
 3. For each user (or selected user):
    - Resolves `DESK_NAME` to resource ID via lookup
@@ -338,7 +362,7 @@ appspace-desk-reservations/
 
 ### Check-in Process
 
-1. Script loads user configurations from `USER_CONFIGS`
+1. Script fetches latest user configs from Google Sheet
 2. Script loads desk mappings from `DESK_LOOKUP.json`
 3. For each user (or selected user):
    - Resolves `DESK_NAME` to resource ID via lookup
@@ -360,17 +384,31 @@ brew install jq  # macOS
 sudo apt-get install jq  # Linux
 ```
 
+### "Missing GOOGLE_SHEET_ID"
+
+Set `GOOGLE_SHEET_ID` in your `.env` file or export it:
+
+```bash
+export GOOGLE_SHEET_ID="your-sheet-id-here"
+```
+
+### "Failed to fetch Google Sheet"
+
+- Verify the Google Sheet is publicly accessible (Share → Anyone with the link)
+- Check your internet connection
+- Verify the `GOOGLE_SHEET_ID` is correct
+
 ### "USER_CONFIGS is not valid JSON"
 
-- Ensure `USER_CONFIGS` is valid JSON
-- For GitHub secrets, use single-line format: `cat USER_CONFIGS.json | jq -c .`
+- Ensure `USER_CONFIGS.json` is valid JSON
+- Run `./fetch_users.sh` to regenerate it from the Google Sheet
 - Run `./test_user_configs.sh` to validate
 
 ### "User 'X' not found in USER_CONFIGS"
 
-- Verify the user key exists in your `USER_CONFIGS`
-- Check spelling/case sensitivity
-- List available users: `echo "$USER_CONFIGS" | jq 'keys'`
+- Verify the user exists in the Google Sheet
+- Ensure the user has all required fields filled in (especially Organizer ID)
+- Run `./fetch_users.sh` and check for SKIPPED messages
 
 ### "Desk 'X' not found in DESK_LOOKUP"
 
@@ -394,19 +432,18 @@ sudo apt-get install jq  # Linux
 
 ### GitHub Actions Failures
 
-- Verify all required secrets are set
-- Check `USER_CONFIGS` secret format (must be single-line JSON)
+- Verify all required secrets are set (`APPSPACE_HOST`, `BOOKING_START_UTC`, `BOOKING_END_UTC`, `GOOGLE_SHEET_ID`)
 - Ensure `DESK_LOOKUP.json` is committed to the repository
 - Review workflow logs in GitHub Actions tab
-- Ensure `jq` installation step completes successfully
 
 ## Security Notes
 
 - ⚠️ **Never commit** `USER_CONFIGS.json` or `.env` files (already in `.gitignore`)
 - ⚠️ Keep API tokens secure and rotate them regularly
 - ⚠️ Use GitHub Secrets for sensitive configuration in CI/CD
-- ⚠️ Review logs periodically for any unauthorized access
+- ⚠️ The Google Sheet contains tokens — keep the audience limited even if publicly readable
 - ✅ `DESK_LOOKUP.json` is safe to commit (contains only desk names and IDs)
+- ✅ `.env.example` is safe to commit (contains no real values)
 
 ## Contributing
 
