@@ -23,18 +23,13 @@ LOG_FILE="./desk_reservation.log"
 # Desk lookup file path
 DESK_LOOKUP_FILE="./DESK_LOOKUP.json"
 
-# Fetch latest user configs from Google Sheet (if GOOGLE_SHEET_ID is set)
+# Fetch user configs from Google Sheet
 FETCH_SCRIPT="$(dirname "${BASH_SOURCE[0]}")/fetch_users.sh"
 USER_CONFIGS_FILE="./USER_CONFIGS.json"
-if [[ -n "${GOOGLE_SHEET_ID:-}" ]] && [[ -x "$FETCH_SCRIPT" ]]; then
-  "$FETCH_SCRIPT" "$USER_CONFIGS_FILE" || echo "WARNING: Failed to fetch from Google Sheet, using existing $USER_CONFIGS_FILE" >&2
-fi
-
-# Load USER_CONFIGS from JSON file if not already set via env
-if [[ -z "${USER_CONFIGS:-}" ]] && [[ -f "$USER_CONFIGS_FILE" ]]; then
-  USER_CONFIGS=$(cat "$USER_CONFIGS_FILE")
-  echo "Loaded USER_CONFIGS from $USER_CONFIGS_FILE" >&2
-fi
+: "${GOOGLE_SHEET_ID:?Missing GOOGLE_SHEET_ID - set it in .env or as an environment variable}"
+"$FETCH_SCRIPT" "$USER_CONFIGS_FILE"
+USER_CONFIGS=$(cat "$USER_CONFIGS_FILE")
+echo "Loaded USER_CONFIGS from $USER_CONFIGS_FILE" >&2
 
 # Helper function to extract and export user config from USER_CONFIGS
 load_user_config() {
@@ -140,18 +135,29 @@ reserve_day() {
 }
 
 run_reservations() {
+  local error_count=0
+  local attempt_count=0
+
   # Loop through 7 upcoming days and book only weekdays (Mon–Fri)
   for i in {0..7}; do
     DATE=$(date -v+"${i}"d +%Y-%m-%d 2>/dev/null || date -d "+${i} days" +%Y-%m-%d)
     DAY_OF_WEEK=$(date -d "$DATE" +%u 2>/dev/null || date -j -f "%Y-%m-%d" "$DATE" +%u)
 
     if [[ "$DAY_OF_WEEK" -ge 1 && "$DAY_OF_WEEK" -le 5 ]]; then
-      reserve_day "$DATE"
+      ((attempt_count++))
+      if ! reserve_day "$DATE"; then
+        ((error_count++))
+      fi
       sleep 2
     else
       echo "Skipping weekend: $DATE" | tee -a "$LOG_FILE"
     fi
   done
+
+  if [[ "$error_count" -gt 0 ]]; then
+    echo "FAILED: $error_count/$attempt_count reservation(s) failed" | tee -a "$LOG_FILE" >&2
+    return 1
+  fi
 }
 
 # If USER_CONFIGS is set, extract user config from JSON
@@ -191,6 +197,8 @@ if [[ -n "$USER_CONFIGS" ]]; then
     echo "$ALL_USERS" | sed 's/^/  - /' >&2
     echo "" >&2
     
+    FAILED_USERS=0
+    
     # Loop through each user and run reservations
     for CURRENT_USER in $ALL_USERS; do
       echo "========================================" >&2
@@ -199,19 +207,22 @@ if [[ -n "$USER_CONFIGS" ]]; then
       
       # Load user config
       if ! load_user_config "$CURRENT_USER"; then
+        ((FAILED_USERS++))
         continue
       fi
       
       echo "Loaded config for user: $CURRENT_USER ($ORGANIZER_NAME)" >&2
       
       # Run reservations for this user
-      run_reservations
+      if ! run_reservations; then
+        ((FAILED_USERS++))
+      fi
       
       echo "" >&2
     done
     
-    # Exit after processing all users
-    exit 0
+    # Exit with failure if any user had errors
+    exit "$FAILED_USERS"
   else
     # Single user specified - load their config
     if ! load_user_config "$SELECTED_USER"; then
@@ -229,4 +240,5 @@ fi
 # Run reservations for single user mode
 if [[ -n "$SELECTED_USER" ]]; then
   run_reservations
+  exit $?
 fi

@@ -25,18 +25,13 @@ LOG_FILE="./desk_checkin.log"
 # Desk lookup file path
 DESK_LOOKUP_FILE="./DESK_LOOKUP.json"
 
-# Fetch latest user configs from Google Sheet (if GOOGLE_SHEET_ID is set)
+# Fetch user configs from Google Sheet
 FETCH_SCRIPT="$(dirname "${BASH_SOURCE[0]}")/fetch_users.sh"
 USER_CONFIGS_FILE="./USER_CONFIGS.json"
-if [[ -n "${GOOGLE_SHEET_ID:-}" ]] && [[ -x "$FETCH_SCRIPT" ]]; then
-  "$FETCH_SCRIPT" "$USER_CONFIGS_FILE" || echo "WARNING: Failed to fetch from Google Sheet, using existing $USER_CONFIGS_FILE" >&2
-fi
-
-# Load USER_CONFIGS from JSON file if not already set via env
-if [[ -z "${USER_CONFIGS:-}" ]] && [[ -f "$USER_CONFIGS_FILE" ]]; then
-  USER_CONFIGS=$(cat "$USER_CONFIGS_FILE")
-  echo "Loaded USER_CONFIGS from $USER_CONFIGS_FILE" >&2
-fi
+: "${GOOGLE_SHEET_ID:?Missing GOOGLE_SHEET_ID - set it in .env or as an environment variable}"
+"$FETCH_SCRIPT" "$USER_CONFIGS_FILE"
+USER_CONFIGS=$(cat "$USER_CONFIGS_FILE")
+echo "Loaded USER_CONFIGS from $USER_CONFIGS_FILE" >&2
 
 # Helper function to extract and export user config from USER_CONFIGS
 load_user_config() {
@@ -79,6 +74,7 @@ load_user_config() {
 # Check-in function for a single user
 checkin_for_user() {
   local user="$1"
+  local checkin_errors=0
   
   echo "========================================" | tee -a "$LOG_FILE"
   echo "Checking in for user: $user at $(date -u +"%Y-%m-%dT%H:%M:%S.000Z")" | tee -a "$LOG_FILE"
@@ -163,11 +159,17 @@ checkin_for_user() {
       local checkin_error_message
       checkin_error_message=$(echo "$checkin_response" | jq -r '.Message // "Unknown error"' 2>/dev/null)
       echo "ERROR: Check-in failed for event $event_id - $checkin_error: $checkin_error_message" | tee -a "$LOG_FILE" >&2
+      ((checkin_errors++))
     else
       echo "SUCCESS: Checked in for event $event_id" | tee -a "$LOG_FILE"
     fi
     echo "-----" | tee -a "$LOG_FILE"
   done
+
+  if [[ "$checkin_errors" -gt 0 ]]; then
+    echo "FAILED: $checkin_errors check-in(s) failed for $user" | tee -a "$LOG_FILE" >&2
+    return 1
+  fi
 }
 
 # Main execution
@@ -201,13 +203,18 @@ if [[ -n "$USER_CONFIGS" ]]; then
     echo "$ALL_USERS" | sed 's/^/  - /' | tee -a "$LOG_FILE"
     echo "" | tee -a "$LOG_FILE"
     
+    FAILED_USERS=0
     for CURRENT_USER in $ALL_USERS; do
-      checkin_for_user "$CURRENT_USER"
+      if ! checkin_for_user "$CURRENT_USER"; then
+        ((FAILED_USERS++))
+      fi
       echo "" | tee -a "$LOG_FILE"
     done
+    exit "$FAILED_USERS"
   else
     # Single user specified
     checkin_for_user "$SELECTED_USER"
+    exit $?
   fi
 else
   # Fallback to old behavior if USER_CONFIGS not set
