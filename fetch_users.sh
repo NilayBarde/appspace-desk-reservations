@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Fetch user configs from a public Google Sheet and convert to USER_CONFIGS.json
-# The sheet must have columns: Name, Email, Desk, Appspace Token, Organizer ID
+# The sheet must have columns: Name, Email, Desk, Appspace Token, Organizer ID, Days
 # Rows missing Organizer ID are skipped (required for reservations)
 
 set -euo pipefail
@@ -46,7 +46,7 @@ if head -1 "$TEMP_CSV" | grep -qi "<!DOCTYPE\|<html"; then
 fi
 
 # Parse CSV and build USER_CONFIGS JSON
-# Columns: Name, Email, Desk, Appspace Token, Organizer ID
+# Columns: Name, Email, Desk, Appspace Token, Organizer ID, Days
 # Skip header row, skip rows with empty Organizer ID
 USER_JSON=$(awk -F',' '
 BEGIN {
@@ -61,7 +61,16 @@ NR == 1 { next }  # skip header
   gsub(/^[[:space:]]*"?|"?[[:space:]]*$/, "", $3)  # Desk
   gsub(/^[[:space:]]*"?|"?[[:space:]]*$/, "", $4)  # Appspace Token
   gsub(/^[[:space:]]*"?|"?[[:space:]]*$/, "", $5)  # Organizer ID
+  # Days is the last column and may contain commas (e.g. "Mon,Tue,Wed")
+  # which get split by awk. Reconstruct by joining fields 6 through NF.
+  days = ""
+  for (i = 6; i <= NF; i++) {
+    if (i > 6) days = days ","
+    days = days $i
+  }
+  gsub(/^[[:space:]]*"?|"?[[:space:]]*$/, "", days)
   # Also strip carriage returns
+  gsub(/\r/, "", days)
   gsub(/\r/, "", $5)
   gsub(/\r/, "", $4)
   gsub(/\r/, "", $3)
@@ -73,6 +82,7 @@ NR == 1 { next }  # skip header
   desk = $3
   token = $4
   org_id = $5
+  if (days == "") days = "Tue,Wed,Thu"
 
   # Skip empty rows
   if (email == "") next
@@ -95,7 +105,7 @@ NR == 1 { next }  # skip header
   if (!first) printf ","
   first = 0
 
-  printf "\"%s\":{\"APPSPACE_TOKEN\":\"%s\",\"DESK_NAME\":\"%s\",\"ORGANIZER_ID\":\"%s\",\"ORGANIZER_NAME\":\"%s\",\"ORGANIZER_EMAIL\":\"%s\"}", key, token, desk, org_id, name, email
+  printf "\"%s\":{\"APPSPACE_TOKEN\":\"%s\",\"DESK_NAME\":\"%s\",\"ORGANIZER_ID\":\"%s\",\"ORGANIZER_NAME\":\"%s\",\"ORGANIZER_EMAIL\":\"%s\",\"BOOKING_DAYS\":\"%s\"}", key, token, desk, org_id, name, email, days
 }
 END {
   printf "}"

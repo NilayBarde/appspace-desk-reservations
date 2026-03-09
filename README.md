@@ -4,7 +4,7 @@ Automated desk reservation and check-in system for Appspace. This project automa
 
 ## Features
 
-- 🤖 **Automated Reservations**: Automatically reserves desks for weekdays (Monday-Friday) up to 7 days in advance
+- 🤖 **Automated Reservations**: Automatically reserves desks for configured days (per-user) up to 7 days in advance
 - ✅ **Auto Check-in**: Automatically checks in for reservations within a 15-minute window before/after start time
 - 👥 **Multi-User Support**: Manage multiple users with individual desk assignments
 - 📊 **Google Sheets Integration**: Users self-serve by adding their data to a shared Google Sheet
@@ -78,9 +78,12 @@ User configuration is managed via a **public Google Sheet**. Users add their own
 
 **Required columns** (in order):
 
-| Name | Email | Desk | Appspace Token | Organizer ID |
-|------|-------|------|----------------|--------------|
-| John Doe | <john.doe@disney.com> | 08W-125-H | abc-123-... | def-456-... |
+| Name | Email | Desk | Appspace Token | Organizer ID | Days |
+|------|-------|------|----------------|--------------|------|
+| John Doe | <john.doe@disney.com> | 08W-125-H | abc-123-... | def-456-... | Mon,Tue,Wed,Thu |
+
+- **Days** column uses 3-letter abbreviations: `Mon`, `Tue`, `Wed`, `Thu`, `Fri`
+- Leave Days blank to default to `Tue,Wed,Thu`
 
 **Rules:**
 
@@ -110,7 +113,8 @@ The auto-generated `USER_CONFIGS.json` looks like this (see `USER_CONFIGS.exampl
     "DESK_NAME": "08W-125-H",
     "ORGANIZER_ID": "organizer-id",
     "ORGANIZER_NAME": "John Doe",
-    "ORGANIZER_EMAIL": "john.doe@disney.com"
+    "ORGANIZER_EMAIL": "john.doe@disney.com",
+    "BOOKING_DAYS": "Mon,Tue,Wed,Thu"
   }
 }
 ```

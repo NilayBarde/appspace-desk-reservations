@@ -4,13 +4,15 @@
     "DESK_NAME": "08W-125-H",
     "ORGANIZER_ID": "organizer-id-here",
     "ORGANIZER_NAME": "User 1 Name",
-    "ORGANIZER_EMAIL": "user1@example.com"
+    "ORGANIZER_EMAIL": "user1@example.com",
+    "BOOKING_DAYS": "Mon,Tue,Wed,Thu"
   },
   "user2@example.com": {
     "APPSPACE_TOKEN": "another-token-here",
     "DESK_NAME": "08W-126-A",
     "ORGANIZER_ID": "another-organizer-id",
     "ORGANIZER_NAME": "User 2 Name",
-    "ORGANIZER_EMAIL": "user2@example.com"
+    "ORGANIZER_EMAIL": "user2@example.com",
+    "BOOKING_DAYS": "Tue,Wed,Thu"
   }
 }

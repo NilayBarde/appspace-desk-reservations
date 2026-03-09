@@ -45,7 +45,8 @@ load_user_config() {
   export ORGANIZER_ID=$(echo "$user_config" | jq -r '.ORGANIZER_ID // empty')
   export ORGANIZER_NAME=$(echo "$user_config" | jq -r '.ORGANIZER_NAME // empty')
   export ORGANIZER_EMAIL=$(echo "$user_config" | jq -r '.ORGANIZER_EMAIL // empty')
-  
+  export BOOKING_DAYS=$(echo "$user_config" | jq -r '.BOOKING_DAYS // "Tue,Wed,Thu"')
+
   # Look up RESOURCE_ID from desk name (read directly from file to avoid env size limits)
   local desk_name=$(echo "$user_config" | jq -r '.DESK_NAME // empty')
   if [[ -n "$desk_name" ]]; then
@@ -138,19 +139,27 @@ run_reservations() {
   local error_count=0
   local attempt_count=0
 
-  # Loop through 7 upcoming days and book only weekdays (Mon–Fri)
+  # Map day-of-week numbers to 3-letter abbreviations
+  local -A DAY_NAMES=([1]="Mon" [2]="Tue" [3]="Wed" [4]="Thu" [5]="Fri" [6]="Sat" [7]="Sun")
+
+  echo "Booking days: $BOOKING_DAYS" | tee -a "$LOG_FILE"
+
+  # Loop through 7 upcoming days and book only matching days
   for i in {0..7}; do
     DATE=$(date -v+"${i}"d +%Y-%m-%d 2>/dev/null || date -d "+${i} days" +%Y-%m-%d)
     DAY_OF_WEEK=$(date -d "$DATE" +%u 2>/dev/null || date -j -f "%Y-%m-%d" "$DATE" +%u)
+    DAY_NAME="${DAY_NAMES[$DAY_OF_WEEK]}"
 
-    if [[ "$DAY_OF_WEEK" -ge 1 && "$DAY_OF_WEEK" -le 5 ]]; then
+    if [[ "$DAY_OF_WEEK" -ge 6 ]]; then
+      echo "Skipping weekend: $DATE" | tee -a "$LOG_FILE"
+    elif [[ ",$BOOKING_DAYS," == *",$DAY_NAME,"* ]]; then
       ((attempt_count++))
       if ! reserve_day "$DATE"; then
         ((error_count++))
       fi
       sleep 2
     else
-      echo "Skipping weekend: $DATE" | tee -a "$LOG_FILE"
+      echo "Skipping $DAY_NAME ($DATE) - not in booking days" | tee -a "$LOG_FILE"
     fi
   done
 
