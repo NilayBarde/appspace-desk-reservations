@@ -142,6 +142,20 @@ run_reservations() {
   # Map day-of-week numbers to 3-letter abbreviations
   local -A DAY_NAMES=([1]="Mon" [2]="Tue" [3]="Wed" [4]="Thu" [5]="Fri" [6]="Sat" [7]="Sun")
 
+  # 2026 company holidays (YYYY-MM-DD)
+  local HOLIDAYS=(
+    "2026-01-01"  # New Year's Day
+    "2026-01-19"  # Martin Luther King, Jr. Day
+    "2026-02-16"  # President's Day
+    "2026-05-25"  # Memorial Day
+    "2026-06-19"  # Juneteenth
+    "2026-07-03"  # Independence Day
+    "2026-09-07"  # Labor Day
+    "2026-11-26"  # Thanksgiving Day
+    "2026-11-27"  # Day after Thanksgiving
+    "2026-12-25"  # Christmas Day
+  )
+
   echo "Booking days: $BOOKING_DAYS" | tee -a "$LOG_FILE"
 
   # Loop through 7 upcoming days and book only matching days
@@ -152,6 +166,8 @@ run_reservations() {
 
     if [[ "$DAY_OF_WEEK" -ge 6 ]]; then
       echo "Skipping weekend: $DATE" | tee -a "$LOG_FILE"
+    elif [[ " ${HOLIDAYS[*]} " == *" $DATE "* ]]; then
+      echo "Skipping holiday: $DATE" | tee -a "$LOG_FILE"
     elif [[ ",$BOOKING_DAYS," == *",$DAY_NAME,"* ]]; then
       ((attempt_count++))
       if ! reserve_day "$DATE"; then

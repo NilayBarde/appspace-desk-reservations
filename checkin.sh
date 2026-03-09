@@ -86,8 +86,29 @@ checkin_for_user() {
     return 1
   fi
   
+  # 2026 company holidays (YYYY-MM-DD)
+  local HOLIDAYS=(
+    "2026-01-01"  # New Year's Day
+    "2026-01-19"  # Martin Luther King, Jr. Day
+    "2026-02-16"  # President's Day
+    "2026-05-25"  # Memorial Day
+    "2026-06-19"  # Juneteenth
+    "2026-07-03"  # Independence Day
+    "2026-09-07"  # Labor Day
+    "2026-11-26"  # Thanksgiving Day
+    "2026-11-27"  # Day after Thanksgiving
+    "2026-12-25"  # Christmas Day
+  )
+
   # Fetch today's reservations
   today=$(date -u +"%Y-%m-%d")
+
+  # Skip check-in on holidays
+  if [[ " ${HOLIDAYS[*]} " == *" $today "* ]]; then
+    echo "Skipping check-in on holiday: $today" | tee -a "$LOG_FILE"
+    return 0
+  fi
+
   start_at="${today}T05:00:00.000Z"
   end_at="${today}T23:59:59.999Z"
   
