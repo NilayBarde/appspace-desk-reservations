@@ -97,7 +97,9 @@ checkin_for_user() {
     "2026-09-07"  # Labor Day
     "2026-11-26"  # Thanksgiving Day
     "2026-11-27"  # Day after Thanksgiving
+    "2026-12-24"  # Christmas Eve
     "2026-12-25"  # Christmas Day
+    "2026-12-31"  # New Year's Eve
   )
 
   # Fetch today's reservations
