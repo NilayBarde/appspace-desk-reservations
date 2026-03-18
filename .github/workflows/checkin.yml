@@ -2,8 +2,8 @@ name: Desk Check-in Cron
 
 on:
   schedule:
-    # Run at 8:48 AM EST (9:48 AM EDT during daylight saving)
-    # 12 minutes before typical 9:00 AM reservation start time
+    # Run 12 min before 9:00 AM Eastern. Two times for DST: 12:48 UTC (EDT), 13:48 UTC (EST)
+    - cron: "48 12 * * 1-5"
     - cron: "48 13 * * 1-5"
   workflow_dispatch:
     inputs:

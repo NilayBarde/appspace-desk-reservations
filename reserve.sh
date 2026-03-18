@@ -75,10 +75,63 @@ load_user_config() {
   return 0
 }
 
+# Convert Eastern time (HH:MM) to UTC for a given date. Handles DST automatically.
+# Supports both GNU date (Linux) and BSD date (macOS).
+get_utc_time_for_eastern() {
+  local date="$1"
+  local eastern_time="$2"
+  local result
+
+  # GNU date (Linux, GitHub Actions)
+  if result=$(date -d "${date} ${eastern_time} America/New_York" -u +%H:%M:00.000Z 2>/dev/null); then
+    echo "$result"
+    return
+  fi
+
+  # BSD date (macOS)
+  local epoch
+  if epoch=$(TZ=America/New_York date -j -f "%Y-%m-%d %H:%M" "${date} ${eastern_time}" +%s 2>/dev/null); then
+    result=$(date -r "$epoch" -u +%H:%M:00.000Z 2>/dev/null)
+    if [[ -n "$result" ]]; then
+      echo "$result"
+      return
+    fi
+  fi
+
+  return 1
+}
+
 # Define reservation functions
 reserve_day() {
   local date="$1"
   echo "Attempting reservation for $date" | tee -a "$LOG_FILE"
+
+  # Compute UTC times. BOOKING_START_UTC/BOOKING_END_UTC: use "09:00"/"17:00" for 9-5 Eastern (DST-aware),
+  # or "14:00:00.000Z"/"22:00:00.000Z" for literal UTC. Each value is handled independently.
+  local booking_start_utc
+  local booking_end_utc
+  local start_val="${BOOKING_START_UTC:-09:00}"
+  local end_val="${BOOKING_END_UTC:-17:00}"
+
+  if [[ "$start_val" == *"Z"* ]]; then
+    booking_start_utc="$start_val"
+  else
+    booking_start_utc=$(get_utc_time_for_eastern "$date" "$start_val")
+    if [[ -z "$booking_start_utc" ]]; then
+      echo "ERROR: Failed to convert BOOKING_START_UTC '$start_val' to UTC for $date. Use HH:MM (e.g. 09:00) or full UTC (e.g. 14:00:00.000Z)." | tee -a "$LOG_FILE" >&2
+      return 1
+    fi
+  fi
+
+  if [[ "$end_val" == *"Z"* ]]; then
+    booking_end_utc="$end_val"
+  else
+    booking_end_utc=$(get_utc_time_for_eastern "$date" "$end_val")
+    if [[ -z "$booking_end_utc" ]]; then
+      echo "ERROR: Failed to convert BOOKING_END_UTC '$end_val' to UTC for $date. Use HH:MM (e.g. 17:00) or full UTC (e.g. 22:00:00.000Z)." | tee -a "$LOG_FILE" >&2
+      return 1
+    fi
+  fi
 
   local response
   response=$(curl -s --location "$APPSPACE_HOST/api/v3/reservation/reservations" \
@@ -87,8 +140,8 @@ reserve_day() {
     --header "token: $APPSPACE_TOKEN" \
     --data-raw "{
       \"resourceIds\": [\"$RESOURCE_ID\"],
-      \"effectiveStartAt\": \"${date}T${BOOKING_START_UTC}\",
-      \"effectiveEndAt\": \"${date}T${BOOKING_END_UTC}\",
+      \"effectiveStartAt\": \"${date}T${booking_start_utc}\",
+      \"effectiveEndAt\": \"${date}T${booking_end_utc}\",
       \"organizer\": {
         \"id\": \"$ORGANIZER_ID\",
         \"name\": \"$ORGANIZER_NAME\"
@@ -261,8 +314,9 @@ fi
 
 # Ensure required base environment variables exist
 : "${APPSPACE_HOST:?Missing APPSPACE_HOST}"
-: "${BOOKING_START_UTC:?Missing BOOKING_START_UTC}"
-: "${BOOKING_END_UTC:?Missing BOOKING_END_UTC}"
+# BOOKING_START_UTC / BOOKING_END_UTC: "09:00"/"17:00" for 9-5 Eastern (DST-aware), or full UTC e.g. "14:00:00.000Z"
+: "${BOOKING_START_UTC:?Missing BOOKING_START_UTC - use 09:00 for 9 AM Eastern or 14:00:00.000Z for literal UTC}"
+: "${BOOKING_END_UTC:?Missing BOOKING_END_UTC - use 17:00 for 5 PM Eastern or 22:00:00.000Z for literal UTC}"
 
 # Run reservations for single user mode
 if [[ -n "$SELECTED_USER" ]]; then

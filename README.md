@@ -64,9 +64,9 @@ cp .env.example .env
 # Appspace API endpoint
 APPSPACE_HOST="https://disney.cloud.appspace.com"
 
-# Booking time range (UTC)
-BOOKING_START_UTC="14:00:00.000Z"  # 9:00 AM Eastern
-BOOKING_END_UTC="22:00:00.000Z"    # 5:00 PM Eastern
+# Booking time range (9 to 5 Eastern). Use HH:MM for DST-aware conversion:
+BOOKING_START_UTC="09:00"  # 9:00 AM Eastern
+BOOKING_END_UTC="17:00"    # 5:00 PM Eastern
 
 # Google Sheet ID — the long string in your sheet URL
 GOOGLE_SHEET_ID="your-google-sheet-id-here"
@@ -276,19 +276,9 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
    https://disney.cloud.appspace.com
    ```
 
-2. **`BOOKING_START_UTC`**: Reservation start time in UTC
+2. **`BOOKING_START_UTC`** / **`BOOKING_END_UTC`**: 9 to 5 Eastern. Use `09:00` and `17:00` for DST-aware conversion, or `14:00:00.000Z` / `22:00:00.000Z` for literal UTC (EST only).
 
-   ```
-   14:00:00.000Z
-   ```
-
-3. **`BOOKING_END_UTC`**: Reservation end time in UTC
-
-   ```
-   22:00:00.000Z
-   ```
-
-4. **`GOOGLE_SHEET_ID`**: The ID of your public Google Sheet
+3. **`GOOGLE_SHEET_ID`**: The ID of your public Google Sheet
 
    ```
    1WkSm3QjQyuWviPcpgH1H3adxKpV4v3pKu4_LjVTosJk
@@ -300,16 +290,17 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 
 #### Reservation Workflow (`.github/workflows/reservation.yml`)
 
-- **Schedule**: Runs at 9:01 AM Eastern (Monday-Friday)
-  - Winter (EST): `1 14 * * 1-5`
-  - Summer (EDT): `1 13 * * 1-5`
-- **Function**: Reserves desks for the next 7 weekdays
+- **Schedule**: Runs at 9:01 AM Eastern (Monday-Friday), aligned with 9–5 booking. Uses two cron times for DST:
+  - `1 13 * * 1-5` (9:01 AM EDT, Mar–Nov)
+  - `1 14 * * 1-5` (9:01 AM EST, Nov–Mar)
+- **Function**: Reserves desks for the next 7 weekdays (booking times are DST-aware)
 - **Manual Trigger**: Available via workflow_dispatch with optional user selection
 
 #### Check-in Workflow (`.github/workflows/checkin.yml`)
 
-- **Schedule**: Runs at 8:48 AM Eastern (Monday-Friday)
-  - Cron: `48 13 * * 1-5`
+- **Schedule**: Runs 12 min before 9:00 AM Eastern (Monday-Friday), aligned with 9–5 booking. Uses two cron times for DST:
+  - `48 12 * * 1-5` (8:48 AM EDT, Mar–Nov)
+  - `48 13 * * 1-5` (8:48 AM EST, Nov–Mar)
 - **Function**: Checks in for reservations within 15 minutes before/after start time
 - **Manual Trigger**: Available via workflow_dispatch with optional user selection
 
@@ -337,6 +328,13 @@ appspace-desk-reservations/
 ├── fetch_users.sh                # Fetches user data from Google Sheet
 ├── reserve.sh                    # Reservation script
 ├── test_user_configs.sh          # Configuration validation script
+├── tests/
+│   ├── run_tests.sh              # Run all tests
+│   ├── test_time_conversion.sh   # Eastern-to-UTC conversion (DST)
+│   ├── test_booking_utc_logic.sh # BOOKING_START_UTC/BOOKING_END_UTC resolution
+│   ├── test_fetch_users.sh       # CSV parsing logic
+│   └── fixtures/
+│       └── sample_sheet.csv      # Test fixture for fetch_users
 ├── DESK_LOOKUP.json              # Desk name → resource ID mapping
 ├── USER_CONFIGS.example.json     # Example user configuration template
 ├── USER_CONFIGS.json             # Auto-generated from Google Sheet (gitignored)
@@ -424,7 +422,7 @@ export GOOGLE_SHEET_ID="your-sheet-id-here"
 
 - Verify `APPSPACE_TOKEN` is valid and not expired
 - Check `DESK_NAME` exists in `DESK_LOOKUP.json`
-- Ensure booking times are in UTC format
+- Use `BOOKING_START_UTC="09:00"` and `BOOKING_END_UTC="17:00"` for DST-aware 9–5 Eastern
 - Check `desk_reservation.log` for error messages
 
 ### Check-ins Not Working
@@ -449,12 +447,23 @@ export GOOGLE_SHEET_ID="your-sheet-id-here"
 - ✅ `DESK_LOOKUP.json` is safe to commit (contains only desk names and IDs)
 - ✅ `.env.example` is safe to commit (contains no real values)
 
+## Running Tests
+
+```bash
+./tests/run_tests.sh
+```
+
+Tests cover:
+- **Time conversion**: Eastern-to-UTC conversion and DST handling
+- **Booking UTC logic**: HH:MM vs literal UTC format resolution
+- **fetch_users**: CSV parsing and skip logic
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test with `./test_user_configs.sh`
+4. Run `./tests/run_tests.sh` and `./test_user_configs.sh`
 5. Submit a pull request
 
 ## License

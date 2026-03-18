@@ -2,7 +2,8 @@ name: Desk Reservation Cron
 
 on:
   schedule:
-    # Run at 9:01 AM EST (10:01 AM EDT during daylight saving)
+    # Run at 9:01 AM Eastern. Two times for DST: 13:01 UTC (EDT), 14:01 UTC (EST)
+    - cron: "1 13 * * 1-5"
     - cron: "1 14 * * 1-5"
   workflow_dispatch:
     inputs:
