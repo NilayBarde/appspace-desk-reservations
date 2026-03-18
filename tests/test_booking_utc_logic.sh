@@ -13,6 +13,10 @@ get_utc_time_for_eastern() {
   local date="$1"
   local eastern_time="$2"
   local result
+  if result=$(date -d "TZ=\"America/New_York\" ${date} ${eastern_time}" -u +%H:%M:00.000Z 2>/dev/null); then
+    echo "$result"
+    return
+  fi
   if result=$(date -d "${date} ${eastern_time} America/New_York" -u +%H:%M:00.000Z 2>/dev/null); then
     echo "$result"
     return

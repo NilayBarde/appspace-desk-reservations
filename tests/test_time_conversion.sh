@@ -15,7 +15,11 @@ get_utc_time_for_eastern() {
   local eastern_time="$2"
   local result
 
-  # GNU date (Linux, GitHub Actions)
+  # GNU date (Linux, GitHub Actions) - TZ in date string is the correct syntax
+  if result=$(date -d "TZ=\"America/New_York\" ${date} ${eastern_time}" -u +%H:%M:00.000Z 2>/dev/null); then
+    echo "$result"
+    return
+  fi
   if result=$(date -d "${date} ${eastern_time} America/New_York" -u +%H:%M:00.000Z 2>/dev/null); then
     echo "$result"
     return

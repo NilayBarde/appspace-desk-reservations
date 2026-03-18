@@ -75,14 +75,26 @@ load_user_config() {
   return 0
 }
 
-# Convert Eastern time (HH:MM) to UTC for a given date. Handles DST automatically.
-# Supports both GNU date (Linux) and BSD date (macOS).
+# Convert Eastern time (HH:MM or HH:MM:SS) to UTC for a given date. Handles DST automatically.
+# Supports both GNU date (Linux, GitHub Actions) and BSD date (macOS).
 get_utc_time_for_eastern() {
   local date="$1"
   local eastern_time="$2"
   local result
 
-  # GNU date (Linux, GitHub Actions)
+  # Normalize to HH:MM (strip whitespace, newlines, and seconds for consistent parsing)
+  eastern_time="${eastern_time//[$' \t\n\r']/}"
+  if [[ "$eastern_time" =~ ^([0-9]{1,2}):([0-9]{2}) ]]; then
+    eastern_time="${BASH_REMATCH[1]}:${BASH_REMATCH[2]}"
+  fi
+
+  # GNU date (Linux, GitHub Actions) - TZ in date string is the correct syntax
+  if result=$(date -d "TZ=\"America/New_York\" ${date} ${eastern_time}" -u +%H:%M:00.000Z 2>/dev/null); then
+    echo "$result"
+    return
+  fi
+
+  # Fallback: alternate GNU date timezone syntax
   if result=$(date -d "${date} ${eastern_time} America/New_York" -u +%H:%M:00.000Z 2>/dev/null); then
     echo "$result"
     return
