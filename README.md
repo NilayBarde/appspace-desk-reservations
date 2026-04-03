@@ -298,9 +298,9 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 
 #### Check-in Workflow (`.github/workflows/checkin.yml`)
 
-- **Schedule**: Runs 12 min before 9:00 AM Eastern (Monday-Friday), aligned with 9–5 booking. Uses two cron times for DST:
-  - `48 12 * * 1-5` (8:48 AM EDT, Mar–Nov)
-  - `48 13 * * 1-5` (8:48 AM EST, Nov–Mar)
+- **Schedule**: Runs 15 min before 9:00 AM Eastern (Monday-Friday), aligned with 9–5 booking. Uses two cron times for DST:
+  - `45 12 * * 1-5` (8:45 AM EDT, Mar–Nov)
+  - `45 13 * * 1-5` (8:45 AM EST, Nov–Mar)
 - **Function**: Checks in for reservations within 15 minutes before/after start time
 - **Manual Trigger**: Available via workflow_dispatch with optional user selection
 

@@ -2,7 +2,7 @@
 
 # Auto-check-in for today's reservations
 # Checks in events between 15 minutes before and 15 minutes after start time
-# Job runs at 12 minutes before start (e.g., 8:48am for 9:00am reservation)
+# Job runs at 15 minutes before start (e.g., 8:45am for 9:00am reservation)
 
 # Load .env file
 CONFIG_FILE=".env"

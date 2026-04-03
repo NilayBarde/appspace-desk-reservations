@@ -2,9 +2,9 @@ name: Desk Check-in Cron
 
 on:
   schedule:
-    # Run 12 min before 9:00 AM Eastern. Two times for DST: 12:48 UTC (EDT), 13:48 UTC (EST)
-    - cron: "48 12 * * 1-5"
-    - cron: "48 13 * * 1-5"
+    # 8:45 AM Eastern, Mon–Fri. Two UTC times for DST: 12:45 (EDT), 13:45 (EST)
+    - cron: "45 12 * * 1-5"
+    - cron: "45 13 * * 1-5"
   workflow_dispatch:
     inputs:
       user:
