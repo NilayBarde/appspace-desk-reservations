@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Get Appspace info for the desk reservations sheet</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.5; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.35rem; line-height: 1.25; }
+    .card { border: 1px solid #ccc; border-radius: 12px; padding: 1.25rem; margin: 1.25rem 0; background: #fafafa; }
+    @media (prefers-color-scheme: dark) {
+      .card { background: #1e1e1e; border-color: #444; }
+    }
+    ol.steps { padding-left: 1.2rem; }
+    ol.steps li { margin: 0.6rem 0; }
+    .bookmark-link {
+      display: inline-block; margin: 0.5rem 0; padding: 0.65rem 1rem;
+      background: #111; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600;
+    }
+    @media (prefers-color-scheme: dark) {
+      .bookmark-link { background: #eee; color: #111; }
+    }
+    .hint { font-size: 0.9rem; color: #555; }
+    @media (prefers-color-scheme: dark) { .hint { color: #aaa; } }
+    details { margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Get your Appspace token for the desk sheet</h1>
+  <p>No developer tools needed — save a <strong>bookmark</strong> once, then click it whenever your token expires.</p>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1.1rem;">One-time setup: save the bookmark</h2>
+    <ol class="steps">
+      <li><strong>Show your bookmarks bar</strong> (usually <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on Windows, or <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on Mac).</li>
+      <li><strong>Drag</strong> the button below into the bar — <em>or</em> right‑click it → <strong>Bookmark link</strong> / <strong>Add to favorites</strong>.</li>
+    </ol>
+    <p><a id="bookmarklet" class="bookmark-link" href="#">Appspace → Desk sheet info</a></p>
+    <p class="hint">If dragging doesn’t work: right‑click the button → save as bookmark. The bookmark must keep the whole address starting with <code>javascript:</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:1.1rem;">When you need a new token</h2>
+    <ol class="steps">
+      <li>Open Appspace and <strong>log in</strong> (same browser you use for work).</li>
+      <li>Stay on an Appspace page (e.g. desk or home).</li>
+      <li>Click the bookmark: <strong>Appspace → Desk sheet info</strong>.</li>
+      <li>A panel opens with <strong>Copy</strong> buttons. Paste <strong>Appspace Token</strong> and <strong>Organizer ID</strong> into the Google Sheet.</li>
+    </ol>
+    <p class="hint">You must be logged in on that Appspace site. If nothing happens, refresh, log in again, then click the bookmark.</p>
+  </div>
+
+  <details>
+    <summary>Advanced: browser console (optional)</summary>
+    <p>If the bookmark doesn’t work, use F12 → Console and the snippet in the project <code>README.md</code> under “Getting User Configuration from Browser (advanced)”.</p>
+  </details>
+
+  <script>
+(function () {
+  function deskResBookmarklet() {
+    var old = document.getElementById('desk-res-helper-root');
+    if (old) old.remove();
+    var jwt = sessionStorage.jwt;
+    if (!jwt) {
+      window.alert('Log into Appspace on this site first, then click the bookmark again while you are on an Appspace page.');
+      return;
+    }
+    var b64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    var pad = b64.length % 4;
+    if (pad) b64 += '===='.slice(pad);
+    var payload;
+    try {
+      payload = JSON.parse(atob(b64));
+    } catch (e) {
+      window.alert('Could not read your session. Try logging out of Appspace, logging back in, then click the bookmark again.\n\n' + e.message);
+      return;
+    }
+    var u = payload.user || {};
+    var token = (u.CurrentAccess && u.CurrentAccess.Token) || '';
+    var userId = u.UserId || '';
+    var email = u.Username || '';
+    var name = u.DisplayName || '';
+    if (!token) {
+      window.alert('No Appspace token found. Open Appspace in this tab, make sure you are logged in, then try the bookmark again.');
+      return;
+    }
+    function copyText(t, label) {
+      function done() { window.alert('Copied: ' + label); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t).then(done).catch(function () {
+          window.prompt('Copy this (' + label + '):', t);
+        });
+      } else {
+        window.prompt('Copy this (' + label + '):', t);
+      }
+    }
+    var root = document.createElement('div');
+    root.id = 'desk-res-helper-root';
+    root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:16px/1.45 system-ui,-apple-system,sans-serif;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#fff;color:#111;border-radius:12px;max-width:32rem;width:92%;padding:1.5rem;box-shadow:0 12px 40px rgba(0,0,0,.25);max-height:90vh;overflow:auto;';
+
+    function addLabel(text) {
+      var p = document.createElement('p');
+      p.style.margin = '0 0 0.25rem';
+      p.style.fontWeight = '600';
+      p.textContent = text;
+      box.appendChild(p);
+    }
+    function addValue(text) {
+      var p = document.createElement('p');
+      p.style.margin = '0 0 0.75rem';
+      p.style.wordBreak = 'break-word';
+      p.textContent = text;
+      box.appendChild(p);
+    }
+    function addBtn(label, onClick) {
+      var p = document.createElement('p');
+      p.style.margin = '0 0 0.5rem';
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.style.cssText = 'padding:.5rem 1rem;border-radius:8px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font:inherit;';
+      b.addEventListener('click', onClick);
+      p.appendChild(b);
+      box.appendChild(p);
+    }
+
+    var h2 = document.createElement('h2');
+    h2.style.margin = '0 0 0.5rem';
+    h2.style.fontSize = '1.15rem';
+    h2.textContent = 'Your info for the Google Sheet';
+    box.appendChild(h2);
+    var intro = document.createElement('p');
+    intro.style.margin = '0 0 1rem';
+    intro.style.color = '#444';
+    intro.style.fontSize = '0.95rem';
+    intro.textContent = 'Paste Appspace Token and Organizer ID into your row. Name and email are for reference.';
+    box.appendChild(intro);
+
+    addLabel('Name');
+    addValue(name);
+    addLabel('Email');
+    addValue(email);
+    addLabel('Appspace Token');
+    addBtn('Copy Appspace Token', function () { copyText(token, 'Appspace Token'); });
+    addLabel('Organizer ID');
+    addBtn('Copy Organizer ID', function () { copyText(userId, 'Organizer ID'); });
+
+    var allText = 'Name: ' + name + '\nEmail: ' + email + '\nAppspace Token: ' + token + '\nOrganizer ID: ' + userId;
+    var sub = document.createElement('p');
+    sub.style.margin = '0 0 0.25rem';
+    sub.style.fontSize = '0.9rem';
+    sub.style.color = '#555';
+    sub.textContent = 'Copy everything (for your notes)';
+    box.appendChild(sub);
+    var pAll = document.createElement('p');
+    pAll.style.margin = '0 0 1rem';
+    var bAll = document.createElement('button');
+    bAll.type = 'button';
+    bAll.textContent = 'Copy all';
+    bAll.style.cssText = 'padding:.5rem 1rem;border-radius:8px;background:#111;color:#fff;border:none;cursor:pointer;font:inherit;';
+    bAll.addEventListener('click', function () { copyText(allText, 'all info'); });
+    pAll.appendChild(bAll);
+    box.appendChild(pAll);
+
+    var bClose = document.createElement('button');
+    bClose.type = 'button';
+    bClose.textContent = 'Close';
+    bClose.style.cssText = 'width:100%;padding:.6rem;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;font:inherit;';
+    bClose.addEventListener('click', function () { root.remove(); });
+    box.appendChild(bClose);
+
+    root.appendChild(box);
+    document.body.appendChild(root);
+    root.addEventListener('click', function (e) { if (e.target === root) root.remove(); });
+  }
+
+  var el = document.getElementById('bookmarklet');
+  el.setAttribute('href', 'javascript:' + encodeURIComponent('(' + deskResBookmarklet.toString() + ')();'));
+})();
+  </script>
+</body>
+</html>

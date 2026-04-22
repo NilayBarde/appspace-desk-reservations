@@ -180,17 +180,27 @@ The `DESK_LOOKUP.json` file maps human-readable desk names to their resource IDs
 
 ### Getting User Configuration from Browser
 
-To get a new user's Appspace Token and Organizer ID:
+**Easy way (recommended for most people):** use the bookmark helper — no DevTools or code pasting.
 
-1. Have the user log into Appspace in their browser
-2. Open browser DevTools console (F12) or right click and click inspect
-3. Go to the console tab
-4. Paste and run:
+1. Open **`tools/get-appspace-sheet-info.html`** in this repo (double‑click the file, or open it from GitHub).
+2. Follow the short instructions: save the **“Appspace → Desk sheet info”** bookmark once (drag it to the bookmarks bar).
+3. Log into **Appspace** in the browser, stay on an Appspace page, then **click the bookmark**.
+4. A panel opens with **Copy** buttons for **Appspace Token** and **Organizer ID**. Paste those into the Google Sheet.
+
+The bookmark only reads the same session data as the old console snippet; it runs only when the user clicks it on an Appspace page.
+
+<details>
+<summary><strong>Advanced:</strong> DevTools console snippet (if the bookmark doesn’t work)</summary>
+
+1. Log into Appspace, open DevTools (F12) → **Console**.
+2. Paste and run:
 
 ```javascript
 const getUser = () => {
     const jwt = sessionStorage.jwt;
-    const payload = JSON.parse(atob(jwt.split('.')[1]));
+    const b64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4;
+    const payload = JSON.parse(atob(pad ? b64 + '===='.slice(pad) : b64));
     return {
         token: payload.user.CurrentAccess.Token,
         userId: payload.user.UserId,
@@ -198,7 +208,6 @@ const getUser = () => {
         name: payload.user.DisplayName
     };
 };
-
 const user = getUser();
 console.log(`Name: ${user.name}`);
 console.log(`Email: ${user.email}`);
@@ -206,7 +215,9 @@ console.log(`Appspace Token: ${user.token}`);
 console.log(`Organizer ID: ${user.userId}`);
 ```
 
-1. The user then adds this information to the Google Sheet
+3. Copy the values from the console into the Google Sheet.
+
+</details>
 
 ## Usage
 
@@ -328,6 +339,8 @@ appspace-desk-reservations/
 ├── fetch_users.sh                # Fetches user data from Google Sheet
 ├── reserve.sh                    # Reservation script
 ├── test_user_configs.sh          # Configuration validation script
+├── tools/
+│   └── get-appspace-sheet-info.html  # Easy bookmarklet for token + Organizer ID
 ├── tests/
 │   ├── run_tests.sh              # Run all tests
 │   ├── test_time_conversion.sh   # Eastern-to-UTC conversion (DST)
