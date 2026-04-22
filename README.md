@@ -180,14 +180,15 @@ The `DESK_LOOKUP.json` file maps human-readable desk names to their resource IDs
 
 ### Getting User Configuration from Browser
 
-**Easy way (recommended for most people):** use the bookmark helper — no DevTools or code pasting.
+**Easy way:** one bookmark, no DevTools. **After a one-time save:** log in to Appspace → click the bookmark → copy token and Organizer ID into the sheet.
 
-1. Open **`tools/get-appspace-sheet-info.html`** in this repo (double‑click the file, or open it from GitHub).
-2. Follow the short instructions: save the **“Appspace → Desk sheet info”** bookmark once (drag it to the bookmarks bar).
-3. Log into **Appspace** in the browser, stay on an Appspace page, then **click the bookmark**.
-4. A panel opens with **Copy** buttons for **Appspace Token** and **Organizer ID**. Paste those into the Google Sheet.
+1. **Open the helper page** (pick one):
+   - **Online:** [appspace-desk-reservations helper](https://nilaybarde.github.io/appspace-desk-reservations/) — works after you enable GitHub Pages once (repo **Settings → Pages →** Branch `main`, folder **`/docs`**, Save).
+   - **Local:** open `docs/index.html` from this repo (double‑click in Finder, or `open docs/index.html` on Mac).
+2. Drag **“Appspace → Desk sheet info”** to your bookmarks bar (or right‑click → bookmark).
+3. From then on: open Appspace (logged in) → click that bookmark → use **Copy** in the panel → paste into the Google Sheet.
 
-The bookmark only reads the same session data as the old console snippet; it runs only when the user clicks it on an Appspace page.
+The bookmark only runs when clicked on an Appspace tab and reads the same session as the old console snippet.
 
 <details>
 <summary><strong>Advanced:</strong> DevTools console snippet (if the bookmark doesn’t work)</summary>
@@ -339,8 +340,8 @@ appspace-desk-reservations/
 ├── fetch_users.sh                # Fetches user data from Google Sheet
 ├── reserve.sh                    # Reservation script
 ├── test_user_configs.sh          # Configuration validation script
-├── tools/
-│   └── get-appspace-sheet-info.html  # Easy bookmarklet for token + Organizer ID
+├── docs/
+│   └── index.html                # Bookmarklet helper (GitHub Pages from /docs)
 ├── tests/
 │   ├── run_tests.sh              # Run all tests
 │   ├── test_time_conversion.sh   # Eastern-to-UTC conversion (DST)

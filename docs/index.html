@@ -3,57 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Get Appspace info for the desk reservations sheet</title>
+  <title>Appspace token → desk sheet</title>
   <style>
     :root { color-scheme: light dark; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.5; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.35rem; line-height: 1.25; }
-    .card { border: 1px solid #ccc; border-radius: 12px; padding: 1.25rem; margin: 1.25rem 0; background: #fafafa; }
-    @media (prefers-color-scheme: dark) {
-      .card { background: #1e1e1e; border-color: #444; }
-    }
-    ol.steps { padding-left: 1.2rem; }
-    ol.steps li { margin: 0.6rem 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.5; max-width: 36rem; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.35rem; margin-bottom: 0.5rem; }
+    .lead { font-size: 1.05rem; color: #333; margin: 0 0 1.25rem; }
+    @media (prefers-color-scheme: dark) { .lead { color: #ccc; } }
+    .card { border: 1px solid #ccc; border-radius: 12px; padding: 1.25rem; background: #fafafa; }
+    @media (prefers-color-scheme: dark) { .card { background: #1e1e1e; border-color: #444; } }
     .bookmark-link {
-      display: inline-block; margin: 0.5rem 0; padding: 0.65rem 1rem;
+      display: inline-block; margin: 0.35rem 0 0; padding: 0.7rem 1.1rem;
       background: #111; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600;
     }
-    @media (prefers-color-scheme: dark) {
-      .bookmark-link { background: #eee; color: #111; }
-    }
-    .hint { font-size: 0.9rem; color: #555; }
+    @media (prefers-color-scheme: dark) { .bookmark-link { background: #eee; color: #111; } }
+    .steps { margin: 1rem 0 0; padding-left: 1.2rem; }
+    .steps li { margin: 0.4rem 0; }
+    .hint { font-size: 0.88rem; color: #555; margin-top: 1rem; }
     @media (prefers-color-scheme: dark) { .hint { color: #aaa; } }
-    details { margin-top: 1.5rem; }
+    details { margin-top: 1.5rem; font-size: 0.95rem; }
   </style>
 </head>
 <body>
   <h1>Get your Appspace token for the desk sheet</h1>
-  <p>No developer tools needed — save a <strong>bookmark</strong> once, then click it whenever your token expires.</p>
+  <p class="lead"><strong>Once:</strong> drag the button below onto your bookmarks bar.<br />
+    <strong>Whenever the token expires:</strong> log into Appspace → click that bookmark → copy into the Google Sheet.</p>
 
   <div class="card">
-    <h2 style="margin-top:0;font-size:1.1rem;">One-time setup: save the bookmark</h2>
+    <p style="margin:0 0 0.5rem;"><strong>Drag this into the bookmarks bar</strong> (or right‑click → Bookmark link).</p>
+    <p style="margin:0;"><a id="bookmarklet" class="bookmark-link" href="#">Appspace → Desk sheet info</a></p>
+    <p class="hint">Bookmarks bar: <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (Mac) or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (Windows). The saved link must start with <code>javascript:</code>.</p>
     <ol class="steps">
-      <li><strong>Show your bookmarks bar</strong> (usually <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on Windows, or <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> on Mac).</li>
-      <li><strong>Drag</strong> the button below into the bar — <em>or</em> right‑click it → <strong>Bookmark link</strong> / <strong>Add to favorites</strong>.</li>
+      <li>Open Appspace and sign in.</li>
+      <li>Click <strong>Appspace → Desk sheet info</strong> in the bar.</li>
+      <li>Use <strong>Copy</strong> for token and Organizer ID → paste into the sheet.</li>
     </ol>
-    <p><a id="bookmarklet" class="bookmark-link" href="#">Appspace → Desk sheet info</a></p>
-    <p class="hint">If dragging doesn’t work: right‑click the button → save as bookmark. The bookmark must keep the whole address starting with <code>javascript:</code>.</p>
-  </div>
-
-  <div class="card">
-    <h2 style="margin-top:0;font-size:1.1rem;">When you need a new token</h2>
-    <ol class="steps">
-      <li>Open Appspace and <strong>log in</strong> (same browser you use for work).</li>
-      <li>Stay on an Appspace page (e.g. desk or home).</li>
-      <li>Click the bookmark: <strong>Appspace → Desk sheet info</strong>.</li>
-      <li>A panel opens with <strong>Copy</strong> buttons. Paste <strong>Appspace Token</strong> and <strong>Organizer ID</strong> into the Google Sheet.</li>
-    </ol>
-    <p class="hint">You must be logged in on that Appspace site. If nothing happens, refresh, log in again, then click the bookmark.</p>
   </div>
 
   <details>
-    <summary>Advanced: browser console (optional)</summary>
-    <p>If the bookmark doesn’t work, use F12 → Console and the snippet in the project <code>README.md</code> under “Getting User Configuration from Browser (advanced)”.</p>
+    <summary>Bookmark blocked or not working?</summary>
+    <p>Use the browser console snippet in the repo <strong>README.md</strong> (section “Getting User Configuration from Browser” → Advanced).</p>
   </details>
 
   <script>
@@ -136,7 +125,7 @@
     intro.style.margin = '0 0 1rem';
     intro.style.color = '#444';
     intro.style.fontSize = '0.95rem';
-    intro.textContent = 'Paste Appspace Token and Organizer ID into your row. Name and email are for reference.';
+    intro.textContent = 'Paste Appspace Token and Organizer ID into your row.';
     box.appendChild(intro);
 
     addLabel('Name');
@@ -153,7 +142,7 @@
     sub.style.margin = '0 0 0.25rem';
     sub.style.fontSize = '0.9rem';
     sub.style.color = '#555';
-    sub.textContent = 'Copy everything (for your notes)';
+    sub.textContent = 'Copy everything';
     box.appendChild(sub);
     var pAll = document.createElement('p');
     pAll.style.margin = '0 0 1rem';
@@ -177,8 +166,7 @@
     root.addEventListener('click', function (e) { if (e.target === root) root.remove(); });
   }
 
-  var el = document.getElementById('bookmarklet');
-  el.setAttribute('href', 'javascript:' + encodeURIComponent('(' + deskResBookmarklet.toString() + ')();'));
+  document.getElementById('bookmarklet').setAttribute('href', 'javascript:' + encodeURIComponent('(' + deskResBookmarklet.toString() + ')();'));
 })();
   </script>
 </body>
