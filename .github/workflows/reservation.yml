@@ -2,7 +2,8 @@ name: Desk Reservation Cron
 
 on:
   schedule:
-    # Run at 9:01 AM Eastern. Two times for DST: 13:01 UTC (EDT), 14:01 UTC (EST)
+    # Both crons run daily. The check-time gate job below ensures only the one
+    # landing at 9 AM Eastern actually proceeds — handling EDT/EST automatically.
     - cron: "1 13 * * 1-5"
     - cron: "1 14 * * 1-5"
   workflow_dispatch:
@@ -13,8 +14,30 @@ on:
         default: 'all'
         type: string
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
+  check-time:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check Eastern time
+        id: check
+        run: |
+          EASTERN_HOUR=$(TZ='America/New_York' date +%H)
+          if [ "$EASTERN_HOUR" == "09" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "It is ${EASTERN_HOUR}:xx Eastern — skipping this trigger."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
   set-users:
+    needs: check-time
+    if: needs.check-time.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
@@ -57,7 +80,8 @@ jobs:
           fi
 
   run-reservation:
-    needs: set-users
+    needs: [check-time, set-users]
+    if: needs.check-time.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
