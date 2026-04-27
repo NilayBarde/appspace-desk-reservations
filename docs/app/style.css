@@ -1,0 +1,406 @@
+.dra-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 16px/1.5 system-ui, -apple-system, sans-serif;
+}
+
+.dra-panel {
+  background: #fff;
+  color: #111;
+  border-radius: 12px;
+  max-width: 36rem;
+  width: 92%;
+  padding: 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.dra-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dra-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.dra-subtitle {
+  font-size: 0.9rem;
+  color: #555;
+  margin: 0;
+}
+
+.dra-gear {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 6px;
+}
+
+.dra-gear:hover {
+  background: #f0f0f0;
+}
+
+.dra-search-wrap {
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.dra-search {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.dra-search:focus {
+  outline: none;
+  border-color: #111;
+}
+
+.dra-results {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.dra-results li {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dra-results li:last-child {
+  border-bottom: none;
+}
+
+.dra-results li:hover {
+  background: #f5f5f5;
+}
+
+.dra-results-status {
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.dra-days {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.dra-day-btn {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dra-day-btn:hover {
+  border-color: #888;
+}
+
+.dra-day-btn.dra-selected {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.dra-horizon {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.dra-horizon-btn {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.dra-horizon-btn:hover {
+  border-color: #888;
+}
+
+.dra-horizon-btn.dra-selected {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.dra-horizon-custom {
+  width: 4rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.dra-warning {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #5d4037;
+}
+
+.dra-error {
+  background: #fce4ec;
+  border: 1px solid #ef9a9a;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #b71c1c;
+}
+
+.dra-status-ok {
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #1b5e20;
+}
+
+.dra-status-info {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #0d47a1;
+}
+
+.dra-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.dra-btn-primary {
+  background: #111;
+  color: #fff;
+}
+
+.dra-btn-primary:hover {
+  background: #333;
+}
+
+.dra-btn-secondary {
+  background: #fff;
+  color: #111;
+  border: 1px solid #ccc;
+}
+
+.dra-btn-secondary:hover {
+  background: #f5f5f5;
+}
+
+.dra-btn-danger {
+  background: #d32f2f;
+  color: #fff;
+}
+
+.dra-btn-danger:hover {
+  background: #b71c1c;
+}
+
+.dra-btn-close {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  margin-top: 1rem;
+}
+
+.dra-btn-close:hover {
+  background: #f5f5f5;
+}
+
+.dra-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dra-progress-wrap {
+  margin-bottom: 1rem;
+}
+
+.dra-progress-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.dra-progress-fill {
+  height: 100%;
+  background: #111;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.dra-progress-text {
+  font-size: 0.85rem;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.dra-log {
+  max-height: 15rem;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  font-family: monospace;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.dra-log-entry {
+  padding: 0.15rem 0;
+}
+
+.dra-log-ok {
+  color: #2e7d32;
+}
+
+.dra-log-fail {
+  color: #c62828;
+}
+
+.dra-log-skip {
+  color: #888;
+}
+
+.dra-month-group {
+  margin-bottom: 1rem;
+}
+
+.dra-month-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.dra-res-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dra-res-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dra-res-item:last-child {
+  border-bottom: none;
+}
+
+.dra-res-date {
+  min-width: 6rem;
+}
+
+.dra-res-day {
+  min-width: 2.5rem;
+  color: #555;
+}
+
+.dra-res-status {
+  font-size: 0.8rem;
+  color: #777;
+}
+
+.dra-res-holiday {
+  color: #bbb;
+  text-decoration: line-through;
+}
+
+.dra-cancel-check {
+  margin-right: 0.25rem;
+}
+
+.dra-range-picker {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.dra-range-picker select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.dra-cancel-count {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.dra-section-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.dra-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 1rem 0;
+}
