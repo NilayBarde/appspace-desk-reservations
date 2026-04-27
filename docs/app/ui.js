@@ -291,7 +291,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const actions = el("div", "dra-actions");
     if (targetDates.length > 0) {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days (" + targetDates.length + ")");
-      bookBtn.addEventListener("click", () => renderBookPreview(resourceId, targetDates, own));
+      bookBtn.addEventListener("click", () => renderProgress(resourceId, targetDates, own));
       actions.appendChild(bookBtn);
     } else {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
