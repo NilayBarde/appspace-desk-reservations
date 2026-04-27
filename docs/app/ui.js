@@ -293,6 +293,10 @@ export function createApp({ api, user, deskLookup, storage }) {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days (" + targetDates.length + ")");
       bookBtn.addEventListener("click", () => renderBookPreview(resourceId, targetDates, own));
       actions.appendChild(bookBtn);
+    } else {
+      const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
+      bookBtn.addEventListener("click", () => renderSetup());
+      actions.appendChild(bookBtn);
     }
     if (sorted.length > 0) {
       const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Select days to cancel");
