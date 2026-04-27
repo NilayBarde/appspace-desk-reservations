@@ -16,6 +16,12 @@ export function createApp({ api, user, deskLookup, storage }) {
   panel.className = "dra-panel";
   overlay.appendChild(panel);
 
+  const closeX = document.createElement("button");
+  closeX.className = "dra-btn-x";
+  closeX.textContent = "×";
+  closeX.addEventListener("click", () => overlay.remove());
+  panel.appendChild(closeX);
+
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) overlay.remove();
   });
@@ -27,6 +33,7 @@ export function createApp({ api, user, deskLookup, storage }) {
 
   function clear() {
     while (panel.firstChild) panel.removeChild(panel.firstChild);
+    panel.appendChild(closeX);
   }
 
   function el(tag, cls, text) {
@@ -36,11 +43,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     return e;
   }
 
-  function addClose() {
-    const btn = el("button", "dra-btn-close", "Close");
-    btn.addEventListener("click", () => overlay.remove());
-    panel.appendChild(btn);
-  }
 
   // ---- SETUP VIEW ----
   function renderSetup(existingPrefs) {
@@ -198,7 +200,6 @@ export function createApp({ api, user, deskLookup, storage }) {
       renderDashboard();
     });
     panel.appendChild(saveBtn);
-    addClose();
   }
 
   // ---- DASHBOARD VIEW ----
@@ -212,8 +213,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       const fixBtn = el("button", "dra-btn dra-btn-primary", "Open Settings");
       fixBtn.addEventListener("click", () => renderSetup());
       panel.appendChild(fixBtn);
-      addClose();
-      return;
+        return;
     }
 
     panel.appendChild(el("p", "dra-subtitle", "Loading your bookings..."));
@@ -227,8 +227,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     } catch {
       clear();
       panel.appendChild(el("div", "dra-error", "Failed to load bookings. Your session may have expired."));
-      addClose();
-      return;
+        return;
     }
 
     const { own, others } = parseExistingBookings(events, user.id);
@@ -322,7 +321,6 @@ export function createApp({ api, user, deskLookup, storage }) {
       }
     }
 
-    addClose();
   }
 
   // ---- CANCEL VIEW ----
@@ -430,7 +428,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     actions.appendChild(backBtn);
     panel.appendChild(actions);
 
-    addClose();
   }
 
   // ---- PROGRESS VIEW ----
@@ -504,8 +501,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       backBtn.style.marginTop = "1rem";
       backBtn.addEventListener("click", () => renderDashboard());
       panel.appendChild(backBtn);
-      addClose();
-      return;
+        return;
     }
 
     stopBtn.remove();
@@ -520,7 +516,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     doneBtn.style.marginTop = "1rem";
     doneBtn.addEventListener("click", () => renderDashboard());
     panel.appendChild(doneBtn);
-    addClose();
   }
 
   // Start
