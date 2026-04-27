@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Appspace token → desk sheet</title>
+  <title>Book My Desk — Appspace Booking Tool</title>
   <style>
     :root { color-scheme: light dark; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.5; max-width: 36rem; margin: 2rem auto; padding: 0 1rem; }
@@ -25,162 +25,47 @@
   </style>
 </head>
 <body>
-  <h1>Get your Appspace token for the desk sheet</h1>
+  <h1>Book My Desk</h1>
   <p class="lead"><strong>Once:</strong> drag the button below onto your bookmarks bar.<br />
-    <strong>Whenever the token expires:</strong> log into Appspace → click that bookmark → copy into the Google Sheet.</p>
+    <strong>Every ~3 months:</strong> log into Appspace, click the bookmark, pick your desk and days, done.</p>
 
   <div class="card">
     <p style="margin:0 0 0.5rem;"><strong>Step 1 — Save the bookmark once</strong></p>
     <p style="margin:0 0 0.75rem;">Drag this button to your bookmarks bar:</p>
-    <p style="margin:0 0 0.75rem;"><a id="bookmarklet" class="bookmark-link" href="#">Get Appspace Token</a></p>
+    <p style="margin:0 0 0.75rem;"><a id="bookmarklet" class="bookmark-link" href="#">Book My Desk</a></p>
     <p class="hint">Don't see the bookmarks bar? Show it with <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (Mac) or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (Windows).</p>
 
     <details style="margin-top:0.85rem;">
       <summary style="cursor:pointer;font-size:0.9rem;color:#555;">Can't drag? Add it manually instead</summary>
       <ol style="margin:0.6rem 0 0;padding-left:1.2rem;font-size:0.9rem;">
-        <li>Right-click the bookmarks bar → <strong>Add page…</strong> (or <strong>Add bookmark</strong>).</li>
-        <li>Set the name to <strong>Get Appspace Token</strong>.</li>
-        <li>Right-click the <strong>Get Appspace Token</strong> button above → <strong>Copy Link Address</strong>, then paste it into the URL field.</li>
+        <li>Right-click the bookmarks bar and choose <strong>Add page…</strong> (or <strong>Add bookmark</strong>).</li>
+        <li>Set the name to <strong>Book My Desk</strong>.</li>
+        <li>Right-click the <strong>Book My Desk</strong> button above, then <strong>Copy Link Address</strong>, and paste it into the URL field.</li>
         <li>Save.</li>
       </ol>
     </details>
 
-    <p style="margin:1rem 0 0.35rem;"><strong>Step 2 — Use it whenever your token expires</strong></p>
+    <p style="margin:1rem 0 0.35rem;"><strong>Step 2 — Use it</strong></p>
     <ol class="steps" style="margin:0;">
       <li>Log into <a href="https://disney.cloud.appspace.com/" target="_blank" rel="noopener noreferrer">Appspace ↗</a>.</li>
-      <li>Click <strong>Get Appspace Token</strong> in the bookmarks bar.</li>
-      <li>Hit <strong>Copy</strong> for token and Organizer ID → paste into <a href="https://docs.google.com/spreadsheets/d/1WkSm3QjQyuWviPcpgH1H3adxKpV4v3pKu4_LjVTosJk/edit?usp=sharing" target="_blank" rel="noopener noreferrer">the sheet ↗</a>.</li>
+      <li>Click <strong>Book My Desk</strong> in the bookmarks bar.</li>
+      <li>First time: pick your desk (search by name), pick your weekdays, set booking horizon.</li>
+      <li>Returning: see your dashboard — click <strong>Book New Days</strong> when new days are available.</li>
     </ol>
   </div>
 
   <details>
-    <summary>Bookmark blocked or not working?</summary>
-    <p>Use the browser console snippet in the <a href="https://github.com/NilayBarde/appspace-desk-reservations#getting-user-configuration-from-browser" target="_blank" rel="noopener noreferrer">README → “Getting User Configuration from Browser” → Advanced</a>.</p>
+    <summary>How it works</summary>
+    <p>The bookmark runs a small script on the Appspace page that reads your login session (no passwords are stored or transmitted). It books desk reservations up to a year in advance, all within your browser. Preferences are saved in your browser's local storage.</p>
+  </details>
+
+  <details>
+    <summary>Bookmark not working?</summary>
+    <p>Make sure you're logged into Appspace in the same tab before clicking the bookmark. If you see a Content Security Policy error, try this: open the browser console (F12) and paste the bookmarklet code manually.</p>
   </details>
 
   <script>
-(function () {
-  function deskResBookmarklet() {
-    var old = document.getElementById('desk-res-helper-root');
-    if (old) old.remove();
-    var jwt = sessionStorage.jwt;
-    if (!jwt) {
-      window.alert('Log into Appspace on this site first, then click the bookmark again while you are on an Appspace page.');
-      return;
-    }
-    var b64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    var pad = b64.length % 4;
-    if (pad) b64 += '===='.slice(pad);
-    var payload;
-    try {
-      payload = JSON.parse(atob(b64));
-    } catch (e) {
-      window.alert('Could not read your session. Try logging out of Appspace, logging back in, then click the bookmark again.\n\n' + e.message);
-      return;
-    }
-    var u = payload.user || {};
-    var token = (u.CurrentAccess && u.CurrentAccess.Token) || '';
-    var userId = u.UserId || '';
-    var email = u.Username || '';
-    var name = u.DisplayName || '';
-    if (!token) {
-      window.alert('No Appspace token found. Open Appspace in this tab, make sure you are logged in, then try the bookmark again.');
-      return;
-    }
-    function copyText(t, label) {
-      function done() { window.alert('Copied: ' + label); }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(t).then(done).catch(function () {
-          window.prompt('Copy this (' + label + '):', t);
-        });
-      } else {
-        window.prompt('Copy this (' + label + '):', t);
-      }
-    }
-    var root = document.createElement('div');
-    root.id = 'desk-res-helper-root';
-    root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font:16px/1.45 system-ui,-apple-system,sans-serif;';
-    var box = document.createElement('div');
-    box.style.cssText = 'background:#fff;color:#111;border-radius:12px;max-width:32rem;width:92%;padding:1.5rem;box-shadow:0 12px 40px rgba(0,0,0,.25);max-height:90vh;overflow:auto;';
-
-    function addLabel(text) {
-      var p = document.createElement('p');
-      p.style.margin = '0 0 0.25rem';
-      p.style.fontWeight = '600';
-      p.textContent = text;
-      box.appendChild(p);
-    }
-    function addValue(text) {
-      var p = document.createElement('p');
-      p.style.margin = '0 0 0.75rem';
-      p.style.wordBreak = 'break-word';
-      p.textContent = text;
-      box.appendChild(p);
-    }
-    function addBtn(label, onClick) {
-      var p = document.createElement('p');
-      p.style.margin = '0 0 0.5rem';
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = label;
-      b.style.cssText = 'padding:.5rem 1rem;border-radius:8px;border:1px solid #ccc;background:#f5f5f5;cursor:pointer;font:inherit;';
-      b.addEventListener('click', onClick);
-      p.appendChild(b);
-      box.appendChild(p);
-    }
-
-    var h2 = document.createElement('h2');
-    h2.style.margin = '0 0 0.5rem';
-    h2.style.fontSize = '1.15rem';
-    h2.textContent = 'Your info for the Google Sheet';
-    box.appendChild(h2);
-    var intro = document.createElement('p');
-    intro.style.margin = '0 0 1rem';
-    intro.style.color = '#444';
-    intro.style.fontSize = '0.95rem';
-    intro.textContent = 'Paste Appspace Token and Organizer ID into your row.';
-    box.appendChild(intro);
-
-    addLabel('Name');
-    addValue(name);
-    addLabel('Email');
-    addValue(email);
-    addLabel('Appspace Token');
-    addBtn('Copy Appspace Token', function () { copyText(token, 'Appspace Token'); });
-    addLabel('Organizer ID');
-    addBtn('Copy Organizer ID', function () { copyText(userId, 'Organizer ID'); });
-
-    var allText = 'Name: ' + name + '\nEmail: ' + email + '\nAppspace Token: ' + token + '\nOrganizer ID: ' + userId;
-    var sub = document.createElement('p');
-    sub.style.margin = '0 0 0.25rem';
-    sub.style.fontSize = '0.9rem';
-    sub.style.color = '#555';
-    sub.textContent = 'Copy everything';
-    box.appendChild(sub);
-    var pAll = document.createElement('p');
-    pAll.style.margin = '0 0 1rem';
-    var bAll = document.createElement('button');
-    bAll.type = 'button';
-    bAll.textContent = 'Copy all';
-    bAll.style.cssText = 'padding:.5rem 1rem;border-radius:8px;background:#111;color:#fff;border:none;cursor:pointer;font:inherit;';
-    bAll.addEventListener('click', function () { copyText(allText, 'all info'); });
-    pAll.appendChild(bAll);
-    box.appendChild(pAll);
-
-    var bClose = document.createElement('button');
-    bClose.type = 'button';
-    bClose.textContent = 'Close';
-    bClose.style.cssText = 'width:100%;padding:.6rem;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer;font:inherit;';
-    bClose.addEventListener('click', function () { root.remove(); });
-    box.appendChild(bClose);
-
-    root.appendChild(box);
-    document.body.appendChild(root);
-    root.addEventListener('click', function (e) { if (e.target === root) root.remove(); });
-  }
-
-  document.getElementById('bookmarklet').setAttribute('href', 'javascript:' + encodeURIComponent('(' + deskResBookmarklet.toString() + ')();'));
-})();
+    document.getElementById('bookmarklet').href = "javascript:" + encodeURIComponent("(function(){if(!sessionStorage.jwt){alert('Log into Appspace first, then click this bookmark again.');return;}var e=document.getElementById('desk-res-app');if(e){e.remove();return;}var s=document.createElement('script');s.id='desk-res-loader';s.type='module';s.src='https://nilaybarde.github.io/appspace-desk-reservations/app/main.js';document.head.appendChild(s);})()");
   </script>
 </body>
 </html>
