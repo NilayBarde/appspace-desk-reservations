@@ -4,6 +4,8 @@ import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
 import { formatUtcToEt, DOW_NAMES } from "./time.js";
 
+const MAX_BOOKING_DAYS = 90;
+
 export function createApp({ api, user, deskLookup, storage }) {
   const old = document.getElementById("desk-res-app");
   if (old) { old.remove(); return; }
@@ -109,7 +111,7 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     async function fetchAvailability(results) {
       const today = new Date().toISOString().slice(0, 10);
-      const endDate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+      const endDate = new Date(Date.now() + MAX_BOOKING_DAYS * 86400000).toISOString().slice(0, 10);
       return Promise.all(results.map(async (r) => {
         if (availCache.has(r.resourceId)) {
           return { ...r, availability: availCache.get(r.resourceId) };
@@ -386,13 +388,12 @@ export function createApp({ api, user, deskLookup, storage }) {
     const prefs = loadPrefs(storage);
     panel.appendChild(el("h2", "dra-title", "Book New Days"));
 
-    const MAX_BOOKED_DAYS = 90;
     const existingDates = new Set(existingOwn.keys());
     const existingCount = existingDates.size;
-    const remaining = Math.max(0, MAX_BOOKED_DAYS - existingCount);
+    const remaining = Math.max(0, MAX_BOOKING_DAYS - existingCount);
 
     if (remaining === 0) {
-      panel.appendChild(el("div", "dra-warning", "You've reached the " + MAX_BOOKED_DAYS + "-day booking limit. Cancel some days first to book new ones."));
+      panel.appendChild(el("div", "dra-warning", "You've reached the " + MAX_BOOKING_DAYS + "-day booking limit. Cancel some days first to book new ones."));
       const actions = el("div", "dra-actions");
       actions.style.marginTop = "1rem";
       const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
@@ -407,11 +408,11 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(el("p", "dra-section-label", "How many days out?"));
     const horizonRow = el("div", "dra-horizon");
     let horizon = 30;
-    const presets = [{ label: "1 month", val: 30 }, { label: "2 months", val: 60 }, { label: "3 months", val: 90 }];
+    const presets = [{ label: "1 month", val: 30 }, { label: "2 months", val: 60 }, { label: "3 months", val: MAX_BOOKING_DAYS }];
     const customInput = el("input", "dra-horizon-custom");
     customInput.type = "number";
     customInput.min = "1";
-    customInput.max = "90";
+    customInput.max = String(MAX_BOOKING_DAYS);
     customInput.placeholder = "days";
 
     for (const p of presets) {
@@ -428,14 +429,14 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     customInput.addEventListener("input", () => {
       const v = parseInt(customInput.value, 10);
-      if (v > 0 && v <= 90) {
+      if (v > 0 && v <= MAX_BOOKING_DAYS) {
         horizon = v;
         horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
         updatePreview();
       }
     });
     horizonRow.appendChild(customInput);
-    const horizonHint = el("p", "dra-hint", "Max 90 days (3 months)");
+    const horizonHint = el("p", "dra-hint", "Max " + MAX_BOOKING_DAYS + " days");
     horizonRow.appendChild(horizonHint);
     panel.appendChild(horizonRow);
 
@@ -457,7 +458,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       if (targetDates.length > 0) {
         preview.textContent = targetDates.length + " days to book (" + targetDates[0] + " to " + targetDates[targetDates.length - 1] + ")";
         if (allTargets.length > remaining) {
-          preview.textContent += " — capped at " + MAX_BOOKED_DAYS + " total bookings";
+          preview.textContent += " — capped at " + MAX_BOOKING_DAYS + " total bookings";
         }
       } else {
         preview.textContent = "You're already booked for this period.";
