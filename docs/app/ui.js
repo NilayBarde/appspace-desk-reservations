@@ -16,14 +16,21 @@ export function createApp({ api, user, deskLookup, storage }) {
   panel.className = "dra-panel";
   overlay.appendChild(panel);
 
+  let activeAbort = null;
+
+  function dismiss() {
+    if (activeAbort) activeAbort.abort();
+    overlay.remove();
+  }
+
   const closeX = document.createElement("button");
   closeX.className = "dra-btn-x";
   closeX.textContent = "×";
-  closeX.addEventListener("click", () => overlay.remove());
+  closeX.addEventListener("click", dismiss);
   panel.appendChild(closeX);
 
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) dismiss();
   });
 
   document.body.appendChild(overlay);
@@ -449,6 +456,7 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     // Stop button
     const abortCtrl = new AbortController();
+    activeAbort = abortCtrl;
     const stopBtn = el("button", "dra-btn dra-btn-danger", "Stop");
     stopBtn.addEventListener("click", () => abortCtrl.abort());
     panel.appendChild(stopBtn);
@@ -488,6 +496,7 @@ export function createApp({ api, user, deskLookup, storage }) {
         },
       });
     } catch (err) {
+      activeAbort = null;
       stopBtn.remove();
       if (err.message === "CANCELLED") {
         progressText.textContent = "Stopped. " + completed + " days processed.";
@@ -504,6 +513,7 @@ export function createApp({ api, user, deskLookup, storage }) {
         return;
     }
 
+    activeAbort = null;
     stopBtn.remove();
 
     if (lastBooked) {
