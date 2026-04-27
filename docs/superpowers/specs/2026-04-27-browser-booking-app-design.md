@@ -37,7 +37,7 @@ A single-page booking app that runs entirely in the browser, injected as an over
 Shown when no saved preferences exist in `localStorage`.
 
 - **Name/email**: Auto-populated from the Appspace JWT
-- **Desk search**: Typeahead input filtering against `DESK_LOOKUP.json` (32K entries, prefix filter)
+- **Desk search with availability preview**: Typeahead input filtering against `DESK_LOOKUP.json` (32K entries, prefix filter). As results appear, each desk shows its current status — who has it booked (organizer name + number of booked days) or "available". This replaces the Google Sheet's role as a desk directory. New users can immediately see which desks are taken and pick an open one. Implementation: for each visible search result, a GET request fetches upcoming events for that resource and groups by organizer.
 - **Day checkboxes**: Mon through Fri, none selected by default — forces deliberate choice
 - **No-show warning**: Prominent, shown before they can proceed: "Only select days you'll actually be in. Appspace tracks no-shows."
 - **Booking horizon**: Presets (3 mo / 6 mo / 1 year) plus custom input. Default: 3 months
@@ -66,6 +66,15 @@ Shown when preferences exist in `localStorage`.
 - **Live log**: Each day shows booked/skipped/failed as it happens
 - **Time estimate**: "(takes ~1-2 minutes)"
 - Returns to dashboard on completion with updated status
+
+### Conflict Detection
+
+Before booking starts, the app fetches all existing events for the desk (not just the current user's). If other people have reservations:
+
+- **Pre-booking warning**: "This desk has reservations from Jane Smith on 34 days. This is probably their desk. Pick a different one?" with options to go back to desk selection or proceed anyway.
+- **Per-day conflicts during booking**: Days that fail due to conflicts show as "unavailable (booked by someone else)" rather than a generic error.
+
+This uses the same `getExistingBookings` GET call — the response includes all organizers, not just the current user.
 
 ### Error States
 
@@ -104,7 +113,8 @@ All calls use `fetch()` from the Appspace domain with the token in the `token` h
 | Action | Method | Endpoint |
 |--------|--------|----------|
 | Verify token | GET | `/api/v3/reservation/users/me/events?limit=1` |
-| Get existing bookings | GET | `/api/v3/reservation/resources/{id}/events?startAt=...&endAt=...` |
+| Check desk availability (setup) | GET | `/api/v3/reservation/resources/{id}/events?startAt=...&endAt=...` |
+| Get existing bookings (dashboard) | GET | `/api/v3/reservation/resources/{id}/events?startAt=...&endAt=...` |
 | Create reservation (within 7 days) | POST | `/api/v3/reservation/reservations` |
 | Create park reservation (for patch trick) | POST | `/api/v3/reservation/reservations` |
 | Patch to target date | PATCH | `/api/v3/reservation/events/{eventId}` |
@@ -200,6 +210,8 @@ docs/
 - **Cancellation flow**: Verify DELETE calls for selected dates
 - **Token expiry recovery**: Simulate 401 mid-booking, verify resume from correct date
 - **Existing bookings dedup**: Verify already-booked dates are skipped
+- **Desk availability preview**: Verify organizer names and booking counts are extracted correctly from resource events
+- **Conflict detection**: Verify warning shown when desk has other users' bookings, verify per-day conflict handling during booking
 
 ### Manual Test Checklist (browser)
 
