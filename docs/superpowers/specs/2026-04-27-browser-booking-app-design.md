@@ -37,7 +37,7 @@ A single-page booking app that runs entirely in the browser, injected as an over
 Shown when no saved preferences exist in `localStorage`.
 
 - **Name/email**: Auto-populated from the Appspace JWT
-- **Desk search with availability preview**: Typeahead input filtering against `DESK_LOOKUP.json` (32K entries, prefix filter). As results appear, each desk shows its current status — who has it booked (organizer name + number of booked days) or "available". This replaces the Google Sheet's role as a desk directory. New users can immediately see which desks are taken and pick an open one. Implementation: for each visible search result, a GET request fetches upcoming events for that resource and groups by organizer.
+- **Desk search with availability preview**: Typeahead input filtering against `DESK_LOOKUP.json` (32K entries, prefix filter). Results are capped at 10 visible entries; availability is fetched only for those 10 (not all matches). Each desk shows its current status — who has it booked (organizer name + number of booked days) or "available". Availability lookups are debounced (300ms after typing stops) and cached per session to avoid redundant API calls. This replaces the Google Sheet's role as a desk directory. New users can immediately see which desks are taken and pick an open one.
 - **Day checkboxes**: Mon through Fri, none selected by default — forces deliberate choice
 - **No-show warning**: Prominent, shown before they can proceed: "Only select days you'll actually be in. Appspace tracks no-shows."
 - **Booking horizon**: Presets (3 mo / 6 mo / 1 year) plus custom input. Default: 3 months
@@ -79,7 +79,7 @@ This uses the same `getExistingBookings` GET call — the response includes all 
 ### Error States
 
 - **Not logged in**: "Log into Appspace first, then click this bookmark again."
-- **Token expires mid-booking**: "Your session expired. Log into Appspace in another tab, come back here, click Retry." Resumes from last successful date.
+- **Token expires mid-booking**: "Your session expired. Refresh this page to re-login, then click 'Book My Desk' again — it will pick up where it left off." Progress saved to `localStorage`.
 - **Desk not found**: "Desk '[name]' wasn't found. Check your desk name in Settings."
 
 ## Technical Architecture
@@ -103,8 +103,10 @@ The bookmarklet is one line: `javascript:(function(){...load script...})()`. All
 ### Bookmarklet Behavior
 
 1. Checks `sessionStorage.jwt` exists — if not, alerts user to log in
-2. Injects `<script src="https://[pages-url]/app/main.js">` into the page
+2. Fetches `main.js` from GitHub Pages via `fetch()`, then injects it as a `<script>` element with the source text set as `textContent`. This avoids needing an external `script-src` CSP allowance. The CSS is similarly injected inline via a `<style>` element.
 3. `main.js` initializes the overlay UI
+
+**CSP fallback**: If Appspace has strict CSP that blocks inline scripts, the fallback is to bundle the entire app into the bookmarklet itself (larger bookmark, but no external loads). The bookmarklet setup page would generate the full inline version.
 
 ### API Calls
 
@@ -149,9 +151,11 @@ The booking engine skips company holidays (same list currently in `reserve.sh`).
 The booking loop for 90 days takes ~1-2 minutes (400ms delay per call). For 365 days, ~4 minutes. Well within the 20-minute TTL. If the token does expire mid-booking:
 
 1. API returns 401/403
-2. UI pauses, shows: "Session expired. Log into Appspace in another tab, come back, click Retry."
-3. On retry, re-reads `sessionStorage.jwt` for the fresh token
-4. Resumes from the last successfully booked date (tracked in a local variable)
+2. App saves progress to `localStorage` (`deskRes_resumeFrom`: last successful date)
+3. UI shows: "Your session expired. Refresh this page to re-login, then click 'Book My Desk' again — it will pick up where it left off."
+4. On next bookmarklet launch, app detects `deskRes_resumeFrom` and skips already-booked dates automatically
+
+Note: `sessionStorage` is per-tab, so logging in on a different tab does not help the current tab. The user must refresh the Appspace page (which triggers SSO re-auth) and re-click the bookmarklet.
 
 ### localStorage Schema
 
