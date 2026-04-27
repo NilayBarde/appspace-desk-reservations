@@ -82,6 +82,27 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr)
 }
 
 export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress }) {
+  const directDates = [];
+  const farDates = [];
+  for (const d of targetDates) {
+    if (daysOut(todayStr, d) <= 7) {
+      directDates.push(d);
+    } else {
+      farDates.push(d);
+    }
+  }
+
+  const booked = new Set();
+
+  for (const targetDate of directDates) {
+    const result = await bookOneDay(api, resourceId, targetDate, null, user, todayStr);
+    onProgress(result);
+    if (result.ok) booked.add(targetDate);
+    await sleep(400);
+  }
+
+  if (farDates.length === 0) return booked;
+
   const parkEndDate = new Date(new Date(todayStr + "T12:00:00Z").getTime() + 8 * 86400000)
     .toISOString().slice(0, 10);
   const parkEvents = await api.getResourceEvents(resourceId, todayStr, parkEndDate);
@@ -118,9 +139,8 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   }
 
   let parkIdx = 0;
-  const booked = new Set();
 
-  for (const targetDate of targetDates) {
+  for (const targetDate of farDates) {
     const parkDate = parkCandidates[parkIdx % parkCandidates.length];
     const result = await bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr);
     onProgress(result);
