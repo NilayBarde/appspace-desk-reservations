@@ -1,4 +1,4 @@
-import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
+import { loadPrefs, savePrefs, saveLastBookedDate, snoozeBooking, isSnoozed, clearSnooze } from "./preferences.js";
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
@@ -37,7 +37,6 @@ export function createApp({ api, user, deskLookup, storage }) {
 
   const availCache = new Map();
   let searchTimeout = null;
-  let snoozed = false;
 
   function clear() {
     while (panel.firstChild) panel.removeChild(panel.firstChild);
@@ -275,12 +274,12 @@ export function createApp({ api, user, deskLookup, storage }) {
     const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1][0];
-      if (targetDates.length === 0 || snoozed) {
+      if (targetDates.length === 0 || isSnoozed(storage)) {
         panel.appendChild(el("div", "dra-status-ok", "You're all set through " + lastDate + "."));
       } else {
         panel.appendChild(el("div", "dra-status-info", "Booked through " + lastDate + ". " + targetDates.length + " new days available to book."));
       }
-    } else if (targetDates.length > 0 && !snoozed) {
+    } else if (targetDates.length > 0 && !isSnoozed(storage)) {
       panel.appendChild(el("div", "dra-status-info", targetDates.length + " days available to book."));
     }
 
@@ -290,20 +289,20 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     // Actions
     const actions = el("div", "dra-actions");
-    if (targetDates.length > 0 && !snoozed) {
+    if (targetDates.length > 0 && !isSnoozed(storage)) {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days (" + targetDates.length + ")");
       bookBtn.addEventListener("click", () => renderProgress(resourceId, targetDates, own));
       actions.appendChild(bookBtn);
       const skipBtn = el("button", "dra-btn dra-btn-secondary", "Not now");
       skipBtn.addEventListener("click", () => {
-        snoozed = true;
+        snoozeBooking(storage);
         renderDashboard();
       });
       actions.appendChild(skipBtn);
     } else {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
       bookBtn.addEventListener("click", () => {
-        snoozed = false;
+        clearSnooze(storage);
         renderSetup();
       });
       actions.appendChild(bookBtn);

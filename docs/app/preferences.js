@@ -32,3 +32,15 @@ export function getResumeFrom(storage) {
 export function clearResumeState(storage) {
   storage.removeItem(PREFIX + "resumeFrom");
 }
+
+export function snoozeBooking(storage) {
+  storage.setItem(PREFIX + "snoozedOn", new Date().toISOString().slice(0, 10));
+}
+
+export function isSnoozed(storage) {
+  return storage.getItem(PREFIX + "snoozedOn") === new Date().toISOString().slice(0, 10);
+}
+
+export function clearSnooze(storage) {
+  storage.removeItem(PREFIX + "snoozedOn");
+}
