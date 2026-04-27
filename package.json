@@ -1,0 +1,9 @@
+{
+  "name": "appspace-desk-reservations",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/js/*.test.js",
+    "test:bash": "./tests/run_tests.sh"
+  }
+}
