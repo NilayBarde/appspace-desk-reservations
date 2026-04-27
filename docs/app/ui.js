@@ -450,6 +450,12 @@ export function createApp({ api, user, deskLookup, storage }) {
     progressWrap.appendChild(progressText);
     panel.appendChild(progressWrap);
 
+    // Stop button
+    const abortCtrl = new AbortController();
+    const stopBtn = el("button", "dra-btn dra-btn-danger", "Stop");
+    stopBtn.addEventListener("click", () => abortCtrl.abort());
+    panel.appendChild(stopBtn);
+
     // Log
     const log = el("div", "dra-log");
     panel.appendChild(log);
@@ -464,6 +470,7 @@ export function createApp({ api, user, deskLookup, storage }) {
         user,
         targetDates,
         todayStr: new Date().toISOString().slice(0, 10),
+        signal: abortCtrl.signal,
         onProgress: (result) => {
           completed++;
           const pct = Math.round((completed / targetDates.length) * 100);
@@ -484,14 +491,24 @@ export function createApp({ api, user, deskLookup, storage }) {
         },
       });
     } catch (err) {
-      if (err.message === "SESSION_EXPIRED") {
+      stopBtn.remove();
+      if (err.message === "CANCELLED") {
+        progressText.textContent = "Stopped. " + completed + " days processed.";
+      } else if (err.message === "SESSION_EXPIRED") {
         panel.appendChild(el("div", "dra-error", "Your session expired. Refresh this page to re-login, then click 'Book My Desk' again — it will pick up where it left off."));
       } else {
         panel.appendChild(el("div", "dra-error", "Booking interrupted: " + err.message + ". Refresh the page and try again — progress is saved."));
       }
+      if (lastBooked) saveLastBookedDate(storage, lastBooked);
+      const backBtn = el("button", "dra-btn dra-btn-primary", "Back to Dashboard");
+      backBtn.style.marginTop = "1rem";
+      backBtn.addEventListener("click", () => renderDashboard());
+      panel.appendChild(backBtn);
       addClose();
       return;
     }
+
+    stopBtn.remove();
 
     if (lastBooked) {
       saveLastBookedDate(storage, lastBooked);

@@ -81,7 +81,7 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr)
   return { ok: false, date: targetDate, error: `PATCH failed (got ${actualStart || "empty"})` };
 }
 
-export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress }) {
+export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress, signal }) {
   const directDates = [];
   const farDates = [];
   for (const d of targetDates) {
@@ -95,6 +95,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   const booked = new Set();
 
   for (const targetDate of directDates) {
+    if (signal && signal.aborted) throw new Error("CANCELLED");
     const result = await bookOneDay(api, resourceId, targetDate, null, user, todayStr);
     onProgress(result);
     if (result.ok) booked.add(targetDate);
@@ -141,6 +142,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   let parkIdx = 0;
 
   for (const targetDate of farDates) {
+    if (signal && signal.aborted) throw new Error("CANCELLED");
     const parkDate = parkCandidates[parkIdx % parkCandidates.length];
     const result = await bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr);
     onProgress(result);
