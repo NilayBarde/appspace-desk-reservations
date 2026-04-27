@@ -37,6 +37,7 @@ export function createApp({ api, user, deskLookup, storage }) {
 
   const availCache = new Map();
   let searchTimeout = null;
+  let snoozed = false;
 
   function clear() {
     while (panel.firstChild) panel.removeChild(panel.firstChild);
@@ -274,12 +275,12 @@ export function createApp({ api, user, deskLookup, storage }) {
     const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1][0];
-      if (targetDates.length === 0) {
+      if (targetDates.length === 0 || snoozed) {
         panel.appendChild(el("div", "dra-status-ok", "You're all set through " + lastDate + "."));
       } else {
         panel.appendChild(el("div", "dra-status-info", "Booked through " + lastDate + ". " + targetDates.length + " new days available to book."));
       }
-    } else if (targetDates.length > 0) {
+    } else if (targetDates.length > 0 && !snoozed) {
       panel.appendChild(el("div", "dra-status-info", targetDates.length + " days available to book."));
     }
 
@@ -289,13 +290,26 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     // Actions
     const actions = el("div", "dra-actions");
-    if (targetDates.length > 0) {
+    if (targetDates.length > 0 && !snoozed) {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days (" + targetDates.length + ")");
       bookBtn.addEventListener("click", () => renderProgress(resourceId, targetDates, own));
       actions.appendChild(bookBtn);
+      const skipBtn = el("button", "dra-btn dra-btn-secondary", "Not now");
+      skipBtn.addEventListener("click", () => {
+        snoozed = true;
+        renderDashboard();
+      });
+      actions.appendChild(skipBtn);
     } else {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
-      bookBtn.addEventListener("click", () => renderSetup());
+      bookBtn.addEventListener("click", () => {
+        snoozed = false;
+        if (targetDates.length > 0) {
+          renderProgress(resourceId, targetDates, own);
+        } else {
+          renderSetup();
+        }
+      });
       actions.appendChild(bookBtn);
     }
     if (sorted.length > 0) {
