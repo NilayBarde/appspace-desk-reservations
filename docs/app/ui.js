@@ -1,6 +1,6 @@
 import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
-import { HOLIDAYS } from "./holidays.js";
+import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
 import { formatUtcToEt, DOW_NAMES } from "./time.js";
 
@@ -273,6 +273,10 @@ export function createApp({ api, user, deskLookup, storage }) {
       }
     } else if (targetDates.length > 0) {
       panel.appendChild(el("div", "dra-status-info", targetDates.length + " days available to book."));
+    }
+
+    if (new Date(endDate + "T00:00:00Z").getUTCFullYear() > HOLIDAY_YEAR) {
+      panel.appendChild(el("div", "dra-warning", "Holidays are only loaded through " + HOLIDAY_YEAR + ". Ask the repo admin to update holidays.js for " + (HOLIDAY_YEAR + 1) + "."));
     }
 
     // Actions
