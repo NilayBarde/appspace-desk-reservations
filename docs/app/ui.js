@@ -304,11 +304,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
       bookBtn.addEventListener("click", () => {
         snoozed = false;
-        if (targetDates.length > 0) {
-          renderProgress(resourceId, targetDates, own);
-        } else {
-          renderSetup();
-        }
+        renderSetup();
       });
       actions.appendChild(bookBtn);
     }
