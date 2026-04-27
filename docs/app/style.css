@@ -176,6 +176,11 @@
   font-size: 0.9rem;
   color: #5d4037;
 }
+.dra-hint {
+  font-size: 0.82rem;
+  color: #888;
+  margin: 0.25rem 0 0;
+}
 
 .dra-error {
   background: #fce4ec;

@@ -184,6 +184,8 @@ export function createApp({ api, user, deskLookup, storage }) {
       }
     });
     horizonRow.appendChild(customInput);
+    const horizonHint = el("p", "dra-hint", "Max 90 days (3 months)");
+    horizonRow.appendChild(horizonHint);
     panel.appendChild(horizonRow);
 
     // Save button
@@ -192,7 +194,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     saveBtn.addEventListener("click", () => {
       if (!selectedDesk) { window.alert("Please select a desk."); return; }
       if (selectedDays.size === 0) { window.alert("Please select at least one day."); return; }
-      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays], horizon });
+      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays], horizon: Math.min(horizon, 90) });
       renderDashboard();
     });
     panel.appendChild(saveBtn);
