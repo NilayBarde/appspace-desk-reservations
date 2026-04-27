@@ -42,12 +42,15 @@ async function init() {
     }
   }
 
-  createApp({
+  const params = {
     api,
     user: { id: identity.id, name: identity.name, email: identity.email },
     deskLookup,
     storage: localStorage,
-  });
+  };
+
+  createApp(params);
+  window.__deskResToggle = () => createApp(params);
 }
 
 init().catch((err) => {

@@ -48,7 +48,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const prefs = existingPrefs || loadPrefs(storage);
     let selectedDesk = prefs.desk ? { name: prefs.desk, resourceId: deskLookup[prefs.desk] } : null;
     const selectedDays = new Set(prefs.days);
-    let horizon = prefs.horizon || 90;
+    let horizon = Math.min(prefs.horizon || 90, 90);
 
     panel.appendChild(el("h2", "dra-title", selectedDesk ? "Settings" : "Set Up Desk Booking"));
 
@@ -158,11 +158,11 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Horizon picker
     panel.appendChild(el("p", "dra-section-label", "Booking horizon"));
     const horizonRow = el("div", "dra-horizon");
-    const presets = [{ label: "3 months", val: 90 }, { label: "6 months", val: 180 }, { label: "1 year", val: 365 }];
+    const presets = [{ label: "1 month", val: 30 }, { label: "2 months", val: 60 }, { label: "3 months", val: 90 }];
     const customInput = el("input", "dra-horizon-custom");
     customInput.type = "number";
     customInput.min = "1";
-    customInput.max = "365";
+    customInput.max = "90";
     customInput.placeholder = "days";
 
     for (const p of presets) {
@@ -178,7 +178,7 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     customInput.addEventListener("input", () => {
       const v = parseInt(customInput.value, 10);
-      if (v > 0 && v <= 365) {
+      if (v > 0 && v <= 90) {
         horizon = v;
         horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
       }
