@@ -508,6 +508,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const abortCtrl = new AbortController();
     activeAbort = abortCtrl;
     const stopBtn = el("button", "dra-btn dra-btn-danger", "Stop");
+    stopBtn.style.marginBottom = "0.75rem";
     stopBtn.addEventListener("click", () => abortCtrl.abort());
     panel.appendChild(stopBtn);
 
