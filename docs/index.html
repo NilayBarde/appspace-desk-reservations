@@ -65,7 +65,7 @@
   </details>
 
   <script>
-    document.getElementById('bookmarklet').href = "javascript:" + encodeURIComponent("(function(){if(!sessionStorage.jwt){alert('Log into Appspace first, then click this bookmark again.');return;}var e=document.getElementById('desk-res-app');if(e){e.remove();return;}var s=document.createElement('script');s.id='desk-res-loader';s.type='module';s.src='https://nilaybarde.github.io/appspace-desk-reservations/app/main.js';document.head.appendChild(s);})()");
+    document.getElementById('bookmarklet').href = "javascript:" + encodeURIComponent("(function(){if(!sessionStorage.jwt){alert('Log into Appspace first, then click this bookmark again.');return;}var e=document.getElementById('desk-res-app')||document.getElementById('desk-res-loader');if(e){e.remove();return;}var s=document.createElement('script');s.id='desk-res-loader';s.type='module';s.src='https://nilaybarde.github.io/appspace-desk-reservations/app/main.js';document.head.appendChild(s);})()");
   </script>
 </body>
 </html>

@@ -1,6 +1,4 @@
-import { etToUtc } from "./time.js";
-
-const DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import { etToUtc, DOW_NAMES } from "./time.js";
 
 export function getTargetDates({ startDate, endDate, selectedDays, existingDates, holidays }) {
   const dates = [];
@@ -43,12 +41,19 @@ function daysOut(todayStr, targetDate) {
   );
 }
 
+function checkExpired(status) {
+  if (status === 401 || status === 403) {
+    throw new Error("SESSION_EXPIRED");
+  }
+}
+
 async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr) {
   const startTime = etToUtc(targetDate, 9, 0);
   const endTime = etToUtc(targetDate, 17, 0);
 
   if (daysOut(todayStr, targetDate) <= 7) {
-    const { body } = await api.createReservation(resourceId, targetDate, startTime, endTime, user);
+    const { status, body } = await api.createReservation(resourceId, targetDate, startTime, endTime, user);
+    checkExpired(status);
     if (body.events && body.events[0]) return { ok: true, date: targetDate };
     if ((body.message || "").includes("Having")) return { ok: true, date: targetDate, existing: true };
     return { ok: false, date: targetDate, error: body.message || "unknown error" };
@@ -57,6 +62,7 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr)
   const parkStart = etToUtc(parkDate, 9, 0);
   const parkEnd = etToUtc(parkDate, 17, 0);
   const { status, body } = await api.createReservation(resourceId, parkDate, parkStart, parkEnd, user);
+  checkExpired(status);
   const eventId = body.events && body.events[0] && body.events[0].id;
   const resId = body.id;
 

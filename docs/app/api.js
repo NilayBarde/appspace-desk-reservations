@@ -11,7 +11,12 @@ export function createApi(fetchFn, token) {
     };
     if (body) options.body = JSON.stringify(body);
     const res = await fetchFn(path, options);
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      data = {};
+    }
     return { status: res.status, body: data };
   }
 

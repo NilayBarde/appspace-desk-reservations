@@ -1,4 +1,4 @@
-import { loadPrefs, savePrefs, saveLastBookedDate, saveResumeFrom, getResumeFrom, clearResumeState } from "./preferences.js";
+import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
@@ -207,6 +207,15 @@ export function createApp({ api, user, deskLookup, storage }) {
     clear();
     const prefs = loadPrefs(storage);
     const resourceId = deskLookup[prefs.desk];
+
+    if (!resourceId) {
+      panel.appendChild(el("div", "dra-error", "Desk '" + prefs.desk + "' wasn't found. Check your desk name in Settings."));
+      const fixBtn = el("button", "dra-btn dra-btn-primary", "Open Settings");
+      fixBtn.addEventListener("click", () => renderSetup());
+      panel.appendChild(fixBtn);
+      addClose();
+      return;
+    }
 
     panel.appendChild(el("p", "dra-subtitle", "Loading your bookings..."));
 
@@ -472,15 +481,17 @@ export function createApp({ api, user, deskLookup, storage }) {
         },
       });
     } catch (err) {
-      if (lastBooked) saveResumeFrom(storage, lastBooked);
-      panel.appendChild(el("div", "dra-error", "Booking interrupted: " + err.message + ". Refresh the page and try again — progress is saved."));
+      if (err.message === "SESSION_EXPIRED") {
+        panel.appendChild(el("div", "dra-error", "Your session expired. Refresh this page to re-login, then click 'Book My Desk' again — it will pick up where it left off."));
+      } else {
+        panel.appendChild(el("div", "dra-error", "Booking interrupted: " + err.message + ". Refresh the page and try again — progress is saved."));
+      }
       addClose();
       return;
     }
 
     if (lastBooked) {
       saveLastBookedDate(storage, lastBooked);
-      clearResumeState(storage);
     }
 
     progressText.textContent = "Done! " + completed + " days processed.";

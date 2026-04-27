@@ -24,9 +24,11 @@ export function parseSessionJwt(jwtString) {
   const token = user.CurrentAccess && user.CurrentAccess.Token;
   if (!token) throw new Error("JWT payload missing token in CurrentAccess");
 
+  const id = (user.UserAccess && user.UserAccess[0] && user.UserAccess[0].UserGuid) || user.UserId;
+
   return {
     token,
-    id: user.UserId,
+    id,
     name: user.DisplayName,
     email: user.Username,
   };
