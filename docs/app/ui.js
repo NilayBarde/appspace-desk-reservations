@@ -1,4 +1,4 @@
-import { loadPrefs, savePrefs, saveLastBookedDate, snoozeBooking, isSnoozed, clearSnooze } from "./preferences.js";
+import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
@@ -57,7 +57,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     const prefs = existingPrefs || loadPrefs(storage);
     let selectedDesk = prefs.desk ? { name: prefs.desk, resourceId: deskLookup[prefs.desk] } : null;
     const selectedDays = new Set(prefs.days);
-    let horizon = Math.min(prefs.horizon || 90, 90);
 
     panel.appendChild(el("h2", "dra-title", selectedDesk ? "Settings" : "Set Up Desk Booking"));
 
@@ -164,46 +163,13 @@ export function createApp({ api, user, deskLookup, storage }) {
     const warn = el("div", "dra-warning", "Only select days you'll actually be in. Appspace tracks no-shows.");
     panel.appendChild(warn);
 
-    // Horizon picker
-    panel.appendChild(el("p", "dra-section-label", "Booking horizon"));
-    const horizonRow = el("div", "dra-horizon");
-    const presets = [{ label: "1 month", val: 30 }, { label: "2 months", val: 60 }, { label: "3 months", val: 90 }];
-    const customInput = el("input", "dra-horizon-custom");
-    customInput.type = "number";
-    customInput.min = "1";
-    customInput.max = "90";
-    customInput.placeholder = "days";
-
-    for (const p of presets) {
-      const btn = el("button", "dra-horizon-btn" + (horizon === p.val ? " dra-selected" : ""), p.label);
-      btn.addEventListener("click", () => {
-        horizon = p.val;
-        customInput.value = "";
-        horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
-        btn.classList.add("dra-selected");
-      });
-      horizonRow.appendChild(btn);
-    }
-
-    customInput.addEventListener("input", () => {
-      const v = parseInt(customInput.value, 10);
-      if (v > 0 && v <= 90) {
-        horizon = v;
-        horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
-      }
-    });
-    horizonRow.appendChild(customInput);
-    const horizonHint = el("p", "dra-hint", "Max 90 days (3 months)");
-    horizonRow.appendChild(horizonHint);
-    panel.appendChild(horizonRow);
-
     // Save button
     const saveBtn = el("button", "dra-btn dra-btn-primary", "Save & Continue");
     saveBtn.style.marginTop = "1rem";
     saveBtn.addEventListener("click", () => {
       if (!selectedDesk) { window.alert("Please select a desk."); return; }
       if (selectedDays.size === 0) { window.alert("Please select at least one day."); return; }
-      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays], horizon: Math.min(horizon, 90) });
+      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays] });
       renderDashboard();
     });
     panel.appendChild(saveBtn);
@@ -226,7 +192,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(el("p", "dra-subtitle", "Loading your bookings..."));
 
     const today = new Date().toISOString().slice(0, 10);
-    const endDate = new Date(Date.now() + prefs.horizon * 86400000).toISOString().slice(0, 10);
+    const endDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
 
     let events;
     try {
@@ -259,54 +225,18 @@ export function createApp({ api, user, deskLookup, storage }) {
       panel.appendChild(conflictWarn);
     }
 
-    // Compute target dates
-    const selectedDays = new Set(prefs.days);
-    const existingDates = new Set(own.keys());
-    const targetDates = getTargetDates({
-      startDate: today,
-      endDate,
-      selectedDays,
-      existingDates,
-      holidays: HOLIDAYS,
-    });
-
     // Status banner
     const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1][0];
-      if (targetDates.length === 0 || isSnoozed(storage)) {
-        panel.appendChild(el("div", "dra-status-ok", "You're all set through " + lastDate + "."));
-      } else {
-        panel.appendChild(el("div", "dra-status-info", "Booked through " + lastDate + ". " + targetDates.length + " new days available to book."));
-      }
-    } else if (targetDates.length > 0 && !isSnoozed(storage)) {
-      panel.appendChild(el("div", "dra-status-info", targetDates.length + " days available to book."));
-    }
-
-    if (new Date(endDate + "T00:00:00Z").getUTCFullYear() > HOLIDAY_YEAR) {
-      panel.appendChild(el("div", "dra-warning", "Holidays are only loaded through " + HOLIDAY_YEAR + ". Ask the repo admin to update holidays.js for " + (HOLIDAY_YEAR + 1) + "."));
+      panel.appendChild(el("div", "dra-status-ok", "You're all set through " + lastDate + "."));
     }
 
     // Actions
     const actions = el("div", "dra-actions");
-    if (targetDates.length > 0 && !isSnoozed(storage)) {
-      const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days (" + targetDates.length + ")");
-      bookBtn.addEventListener("click", () => renderProgress(resourceId, targetDates, own));
-      actions.appendChild(bookBtn);
-      const skipBtn = el("button", "dra-btn dra-btn-secondary", "Not now");
-      skipBtn.addEventListener("click", () => {
-        snoozeBooking(storage);
-        renderDashboard();
-      });
-      actions.appendChild(skipBtn);
-    } else {
-      const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
-      bookBtn.addEventListener("click", () => {
-        clearSnooze(storage);
-        renderSetup();
-      });
-      actions.appendChild(bookBtn);
-    }
+    const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
+    bookBtn.addEventListener("click", () => renderBookSetup(resourceId, own));
+    actions.appendChild(bookBtn);
     if (sorted.length > 0) {
       const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Select days to cancel");
       cancelBtn.addEventListener("click", () => renderCancel(sorted, resourceId));
@@ -448,6 +378,91 @@ export function createApp({ api, user, deskLookup, storage }) {
     actions.appendChild(backBtn);
     panel.appendChild(actions);
 
+  }
+
+  // ---- BOOK SETUP VIEW ----
+  function renderBookSetup(resourceId, existingOwn) {
+    clear();
+    const prefs = loadPrefs(storage);
+    panel.appendChild(el("h2", "dra-title", "Book New Days"));
+
+    panel.appendChild(el("p", "dra-section-label", "How many days out?"));
+    const horizonRow = el("div", "dra-horizon");
+    let horizon = 30;
+    const presets = [{ label: "1 month", val: 30 }, { label: "2 months", val: 60 }, { label: "3 months", val: 90 }];
+    const customInput = el("input", "dra-horizon-custom");
+    customInput.type = "number";
+    customInput.min = "1";
+    customInput.max = "90";
+    customInput.placeholder = "days";
+
+    for (const p of presets) {
+      const btn = el("button", "dra-horizon-btn" + (horizon === p.val ? " dra-selected" : ""), p.label);
+      btn.addEventListener("click", () => {
+        horizon = p.val;
+        customInput.value = "";
+        horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
+        btn.classList.add("dra-selected");
+        updatePreview();
+      });
+      horizonRow.appendChild(btn);
+    }
+
+    customInput.addEventListener("input", () => {
+      const v = parseInt(customInput.value, 10);
+      if (v > 0 && v <= 90) {
+        horizon = v;
+        horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
+        updatePreview();
+      }
+    });
+    horizonRow.appendChild(customInput);
+    const horizonHint = el("p", "dra-hint", "Max 90 days (3 months)");
+    horizonRow.appendChild(horizonHint);
+    panel.appendChild(horizonRow);
+
+    const preview = el("p", "dra-subtitle");
+    panel.appendChild(preview);
+
+    const existingDates = new Set(existingOwn.keys());
+    const selectedDays = new Set(prefs.days);
+    let targetDates = [];
+
+    const holidayWarn = el("div", "dra-warning");
+    holidayWarn.style.display = "none";
+    panel.appendChild(holidayWarn);
+
+    function updatePreview() {
+      const today = new Date().toISOString().slice(0, 10);
+      const endDate = new Date(Date.now() + horizon * 86400000).toISOString().slice(0, 10);
+      targetDates = getTargetDates({ startDate: today, endDate, selectedDays, existingDates, holidays: HOLIDAYS });
+      if (targetDates.length > 0) {
+        preview.textContent = targetDates.length + " days to book (" + targetDates[0] + " to " + targetDates[targetDates.length - 1] + ")";
+      } else {
+        preview.textContent = "You're already booked for this period.";
+      }
+      if (new Date(endDate + "T00:00:00Z").getUTCFullYear() > HOLIDAY_YEAR) {
+        holidayWarn.textContent = "Holidays are only loaded through " + HOLIDAY_YEAR + ". Ask the repo admin to update holidays.js for " + (HOLIDAY_YEAR + 1) + ".";
+        holidayWarn.style.display = "";
+      } else {
+        holidayWarn.style.display = "none";
+      }
+    }
+    updatePreview();
+
+    const actions = el("div", "dra-actions");
+    actions.style.marginTop = "1rem";
+    const bookBtn = el("button", "dra-btn dra-btn-primary", "Book");
+    bookBtn.addEventListener("click", () => {
+      if (targetDates.length === 0) return;
+      renderProgress(resourceId, targetDates, existingOwn);
+    });
+    actions.appendChild(bookBtn);
+
+    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
+    backBtn.addEventListener("click", () => renderDashboard());
+    actions.appendChild(backBtn);
+    panel.appendChild(actions);
   }
 
   // ---- PROGRESS VIEW ----
