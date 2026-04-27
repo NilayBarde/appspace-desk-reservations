@@ -386,6 +386,24 @@ export function createApp({ api, user, deskLookup, storage }) {
     const prefs = loadPrefs(storage);
     panel.appendChild(el("h2", "dra-title", "Book New Days"));
 
+    const MAX_BOOKED_DAYS = 90;
+    const existingDates = new Set(existingOwn.keys());
+    const existingCount = existingDates.size;
+    const remaining = Math.max(0, MAX_BOOKED_DAYS - existingCount);
+
+    if (remaining === 0) {
+      panel.appendChild(el("div", "dra-warning", "You've reached the " + MAX_BOOKED_DAYS + "-day booking limit. Cancel some days first to book new ones."));
+      const actions = el("div", "dra-actions");
+      actions.style.marginTop = "1rem";
+      const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
+      backBtn.addEventListener("click", () => renderDashboard());
+      actions.appendChild(backBtn);
+      panel.appendChild(actions);
+      return;
+    }
+
+    panel.appendChild(el("p", "dra-hint", existingCount + " days booked, " + remaining + " remaining."));
+
     panel.appendChild(el("p", "dra-section-label", "How many days out?"));
     const horizonRow = el("div", "dra-horizon");
     let horizon = 30;
@@ -424,7 +442,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     const preview = el("p", "dra-subtitle");
     panel.appendChild(preview);
 
-    const existingDates = new Set(existingOwn.keys());
     const selectedDays = new Set(prefs.days);
     let targetDates = [];
 
@@ -435,9 +452,13 @@ export function createApp({ api, user, deskLookup, storage }) {
     function updatePreview() {
       const today = new Date().toISOString().slice(0, 10);
       const endDate = new Date(Date.now() + horizon * 86400000).toISOString().slice(0, 10);
-      targetDates = getTargetDates({ startDate: today, endDate, selectedDays, existingDates, holidays: HOLIDAYS });
+      const allTargets = getTargetDates({ startDate: today, endDate, selectedDays, existingDates, holidays: HOLIDAYS });
+      targetDates = allTargets.slice(0, remaining);
       if (targetDates.length > 0) {
         preview.textContent = targetDates.length + " days to book (" + targetDates[0] + " to " + targetDates[targetDates.length - 1] + ")";
+        if (allTargets.length > remaining) {
+          preview.textContent += " — capped at " + MAX_BOOKED_DAYS + " total bookings";
+        }
       } else {
         preview.textContent = "You're already booked for this period.";
       }
