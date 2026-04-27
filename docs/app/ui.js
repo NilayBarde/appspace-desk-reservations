@@ -102,22 +102,19 @@ export function createApp({ api, user, deskLookup, storage }) {
     async function fetchAvailability(results) {
       const today = new Date().toISOString().slice(0, 10);
       const endDate = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
-      const enriched = [];
-      for (const r of results) {
+      return Promise.all(results.map(async (r) => {
         if (availCache.has(r.resourceId)) {
-          enriched.push({ ...r, availability: availCache.get(r.resourceId) });
-        } else {
-          try {
-            const events = await api.getResourceEvents(r.resourceId, today, endDate);
-            const avail = parseAvailability(events);
-            availCache.set(r.resourceId, avail);
-            enriched.push({ ...r, availability: avail });
-          } catch {
-            enriched.push(r);
-          }
+          return { ...r, availability: availCache.get(r.resourceId) };
         }
-      }
-      return enriched;
+        try {
+          const events = await api.getResourceEvents(r.resourceId, today, endDate);
+          const avail = parseAvailability(events);
+          availCache.set(r.resourceId, avail);
+          return { ...r, availability: avail };
+        } catch {
+          return r;
+        }
+      }));
     }
 
     searchInput.addEventListener("input", () => {
