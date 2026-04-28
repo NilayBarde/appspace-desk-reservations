@@ -2,7 +2,7 @@ import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
-import { etToUtc, formatUtcToEt, DOW_NAMES } from "./time.js";
+import { etToUtc, DOW_NAMES } from "./time.js";
 
 const MAX_BOOKING_DAYS = 90;
 
