@@ -245,7 +245,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
 
     // Check-in today
-    const today = new Date().toISOString().slice(0, 10);
     if (own.has(today)) {
       const todayInfo = own.get(today);
       const status = (todayInfo.status || "").toLowerCase();
