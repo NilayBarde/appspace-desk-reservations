@@ -2,7 +2,7 @@ import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
-import { formatUtcToEt, DOW_NAMES } from "./time.js";
+import { etToUtc, formatUtcToEt, DOW_NAMES } from "./time.js";
 
 const MAX_BOOKING_DAYS = 90;
 
@@ -245,6 +245,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
 
     // Check-in today
+    const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
+    const isWeekday = todayDow >= 1 && todayDow <= 5;
     if (own.has(today)) {
       const todayInfo = own.get(today);
       const todayStatus = (todayInfo.status || "").toLowerCase();
@@ -283,6 +285,41 @@ export function createApp({ api, user, deskLookup, storage }) {
       } else if (todayStatus === "pending" || todayStatus === "notconfirmed") {
         panel.appendChild(el("p", "dra-hint", "Check-in window hasn't opened yet."));
       }
+    } else if (isWeekday) {
+      const rebookWrap = el("div", "dra-actions");
+      const rebookBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In Today");
+      rebookBtn.addEventListener("click", async () => {
+        rebookBtn.disabled = true;
+        rebookBtn.textContent = "Rebooking...";
+        try {
+          const startTime = etToUtc(today, 9, 0);
+          const endTime = etToUtc(today, 17, 0);
+          const title = prefs.title || undefined;
+          const { status, body } = await api.createReservation(resourceId, today, startTime, endTime, user, title);
+          if (status === 401 || status === 403) {
+            rebookBtn.textContent = "Session expired";
+            return;
+          }
+          if (!body.events || !body.events[0]) {
+            rebookBtn.textContent = body.message || "Rebook failed";
+            rebookBtn.disabled = false;
+            return;
+          }
+          rebookBtn.textContent = "Checking in...";
+          const eventId = body.events[0].id;
+          const { status: ciStatus } = await api.checkinEvent(eventId, [resourceId]);
+          if (ciStatus === 401 || ciStatus === 403) {
+            rebookBtn.textContent = "Rebooked (check-in session expired)";
+            return;
+          }
+          rebookBtn.textContent = "Rebooked & checked in!";
+        } catch {
+          rebookBtn.textContent = "Rebook failed";
+          rebookBtn.disabled = false;
+        }
+      });
+      rebookWrap.appendChild(rebookBtn);
+      panel.appendChild(rebookWrap);
     }
 
     // Actions
