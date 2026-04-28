@@ -250,8 +250,14 @@ export function createApp({ api, user, deskLookup, storage }) {
     if (own.has(today)) {
       const todayInfo = own.get(today);
       const todayStatus = (todayInfo.status || "").toLowerCase();
-      if (todayStatus !== "active") {
-        const checkinWrap = el("div", "dra-actions");
+      const checkinWrap = el("div", "dra-actions");
+      if (todayStatus === "active") {
+        const checkinBtn = el("button", "dra-btn dra-btn-primary", "Checked In");
+        checkinBtn.disabled = true;
+        checkinBtn.style.opacity = "0.5";
+        checkinBtn.style.cursor = "not-allowed";
+        checkinWrap.appendChild(checkinBtn);
+      } else {
         const canCheckin = todayStatus === "checkin";
         const checkinBtn = el("button", "dra-btn dra-btn-primary", "Check In Today");
         if (!canCheckin) {
@@ -292,8 +298,8 @@ export function createApp({ api, user, deskLookup, storage }) {
           const hint = el("span", "dra-hint", " Check-in window not open yet");
           checkinWrap.appendChild(hint);
         }
-        panel.appendChild(checkinWrap);
       }
+      panel.appendChild(checkinWrap);
     } else if (isWeekday) {
       const rebookWrap = el("div", "dra-actions");
       const rebookBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In Today");
