@@ -10,6 +10,7 @@ describe("loadPrefs", () => {
     assert.equal(prefs.desk, null);
     assert.deepEqual(prefs.days, []);
     assert.equal(prefs.lastBookedDate, null);
+    assert.equal(prefs.title, "");
   });
 
   it("reads saved values", () => {
@@ -17,11 +18,13 @@ describe("loadPrefs", () => {
       deskRes_desk: "08W-147-F",
       deskRes_days: "Tue,Wed,Thu",
       deskRes_lastBookedDate: "2026-08-14",
+      deskRes_title: "My Desk",
     });
     const prefs = loadPrefs(storage);
     assert.equal(prefs.desk, "08W-147-F");
     assert.deepEqual(prefs.days, ["Tue", "Wed", "Thu"]);
     assert.equal(prefs.lastBookedDate, "2026-08-14");
+    assert.equal(prefs.title, "My Desk");
   });
 });
 

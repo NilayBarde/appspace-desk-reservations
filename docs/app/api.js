@@ -38,9 +38,10 @@ export function createApi(fetchFn, token) {
       return body.items || [];
     },
 
-    async createReservation(resourceId, dateStr, startTime, endTime, user) {
+    async createReservation(resourceId, dateStr, startTime, endTime, user, title) {
       return request("POST", "/api/v3/reservation/reservations", {
         resourceIds: [resourceId],
+        title: title || "Workspace Reservation",
         effectiveStartAt: `${dateStr}T${startTime}`,
         effectiveEndAt: `${dateStr}T${endTime}`,
         organizer: { id: user.id, name: user.name },
@@ -61,13 +62,24 @@ export function createApi(fetchFn, token) {
       });
     },
 
-    async patchEventDate(eventId, dateStr, startTime, endTime) {
-      return request("PATCH", `/api/v3/reservation/events/${eventId}`, {
+    async patchEventDate(eventId, dateStr, startTime, endTime, user, resourceId) {
+      const body = {
         startAt: `${dateStr}T${startTime}`,
         endAt: `${dateStr}T${endTime}`,
         reservationStartAt: `${dateStr}T${startTime}`,
         reservationEndAt: `${dateStr}T${endTime}`,
-      });
+      };
+      if (user && resourceId) {
+        body.attendees = [{
+          displayName: user.name,
+          email: user.email,
+          resourceIds: [resourceId],
+          attendanceType: "InPerson",
+          userId: user.id,
+          id: user.id,
+        }];
+      }
+      return request("PATCH", `/api/v3/reservation/events/${eventId}`, body);
     },
 
     async deleteReservation(reservationId) {

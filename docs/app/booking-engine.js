@@ -47,12 +47,12 @@ function checkExpired(status) {
   }
 }
 
-async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr) {
+async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title) {
   const startTime = etToUtc(targetDate, 9, 0);
   const endTime = etToUtc(targetDate, 17, 0);
 
   if (daysOut(todayStr, targetDate) <= 7) {
-    const { status, body } = await api.createReservation(resourceId, targetDate, startTime, endTime, user);
+    const { status, body } = await api.createReservation(resourceId, targetDate, startTime, endTime, user, title);
     checkExpired(status);
     if (body.events && body.events[0]) return { ok: true, date: targetDate };
     if ((body.message || "").includes("Having")) return { ok: true, date: targetDate, existing: true };
@@ -61,7 +61,7 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr)
 
   const parkStart = etToUtc(parkDate, 9, 0);
   const parkEnd = etToUtc(parkDate, 17, 0);
-  const { status, body } = await api.createReservation(resourceId, parkDate, parkStart, parkEnd, user);
+  const { status, body } = await api.createReservation(resourceId, parkDate, parkStart, parkEnd, user, title);
   checkExpired(status);
   const eventId = body.events && body.events[0] && body.events[0].id;
   const resId = body.id;
@@ -70,7 +70,7 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr)
     return { ok: false, date: targetDate, error: body.message || `HTTP ${status}` };
   }
 
-  const patchResult = await api.patchEventDate(eventId, targetDate, startTime, endTime);
+  const patchResult = await api.patchEventDate(eventId, targetDate, startTime, endTime, user, resourceId);
   const actualStart = patchResult.body.startAt || "";
 
   if (actualStart.startsWith(targetDate)) {
@@ -81,7 +81,7 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr)
   return { ok: false, date: targetDate, error: `PATCH failed (got ${actualStart || "empty"})` };
 }
 
-export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress, signal }) {
+export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress, signal, title }) {
   const directDates = [];
   const farDates = [];
   for (const d of targetDates) {
@@ -96,7 +96,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
 
   for (const targetDate of directDates) {
     if (signal && signal.aborted) throw new Error("CANCELLED");
-    const result = await bookOneDay(api, resourceId, targetDate, null, user, todayStr);
+    const result = await bookOneDay(api, resourceId, targetDate, null, user, todayStr, title);
     onProgress(result);
     if (result.ok) booked.add(targetDate);
     await sleep(400);
@@ -144,7 +144,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   for (const targetDate of farDates) {
     if (signal && signal.aborted) throw new Error("CANCELLED");
     const parkDate = parkCandidates[parkIdx % parkCandidates.length];
-    const result = await bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr);
+    const result = await bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title);
     onProgress(result);
 
     if (result.ok) {
@@ -156,7 +156,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   }
 
   if (freedParkDate && !booked.has(freedParkDate)) {
-    const rebookResult = await bookOneDay(api, resourceId, freedParkDate, freedParkDate, user, todayStr);
+    const rebookResult = await bookOneDay(api, resourceId, freedParkDate, freedParkDate, user, todayStr, title);
     onProgress(rebookResult);
   }
 
@@ -178,6 +178,7 @@ export function parseExistingBookings(events, organizerId) {
         status: item.status,
         reservationId: item.reservationId,
         eventId: item.id,
+        hasAttendees: (item.attendees || []).length > 0,
       });
     } else {
       const name = org.name || "Unknown";
@@ -186,4 +187,22 @@ export function parseExistingBookings(events, organizerId) {
     }
   }
   return { own, others };
+}
+
+export async function repairBookings({ api, resourceId, user, bookings, onProgress, signal }) {
+  let repaired = 0;
+  for (const [day, info] of bookings) {
+    if (signal && signal.aborted) throw new Error("CANCELLED");
+    if (info.hasAttendees) {
+      onProgress({ date: day, skipped: true });
+      continue;
+    }
+    const startTime = info.startAt.split("T")[1];
+    const endTime = info.endAt.split("T")[1];
+    await api.patchEventDate(info.eventId, day, startTime, endTime, user, resourceId);
+    repaired++;
+    onProgress({ date: day, ok: true });
+    await sleep(400);
+  }
+  return repaired;
 }

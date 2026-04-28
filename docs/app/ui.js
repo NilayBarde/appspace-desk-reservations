@@ -1,5 +1,5 @@
 import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
-import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
+import { getTargetDates, bookAllDays, parseExistingBookings, repairBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
 import { formatUtcToEt, DOW_NAMES } from "./time.js";
@@ -161,6 +161,16 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
     panel.appendChild(daysRow);
 
+    // Reservation name
+    panel.appendChild(el("hr", "dra-divider"));
+    panel.appendChild(el("p", "dra-section-label", "Reservation name (optional)"));
+    const titleInput = el("input", "dra-search");
+    titleInput.type = "text";
+    titleInput.placeholder = "Workspace Reservation";
+    titleInput.value = prefs.title || "";
+    panel.appendChild(titleInput);
+    panel.appendChild(el("p", "dra-hint", "Shows in Appspace as reservation title. Leave blank for default."));
+
     // No-show warning
     const warn = el("div", "dra-warning", "Only select days you'll actually be in. Appspace tracks no-shows.");
     panel.appendChild(warn);
@@ -171,7 +181,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     saveBtn.addEventListener("click", () => {
       if (!selectedDesk) { window.alert("Please select a desk."); return; }
       if (selectedDays.size === 0) { window.alert("Please select at least one day."); return; }
-      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays] });
+      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays], title: titleInput.value.trim() });
       renderDashboard();
     });
     panel.appendChild(saveBtn);
@@ -245,6 +255,18 @@ export function createApp({ api, user, deskLookup, storage }) {
       actions.appendChild(cancelBtn);
     }
     panel.appendChild(actions);
+
+    // Auto-repair bookings missing attendees
+    const needsRepair = sorted.filter(([, info]) => !info.hasAttendees);
+    if (needsRepair.length > 0) {
+      repairBookings({
+        api,
+        resourceId,
+        user,
+        bookings: needsRepair,
+        onProgress: () => {},
+      }).catch(() => {});
+    }
 
     // Reservation list
     if (sorted.length > 0) {
@@ -519,6 +541,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     let completed = 0;
     let lastBooked = null;
 
+    const prefs = loadPrefs(storage);
     try {
       await bookAllDays({
         api,
@@ -527,6 +550,7 @@ export function createApp({ api, user, deskLookup, storage }) {
         targetDates,
         todayStr: new Date().toISOString().slice(0, 10),
         signal: abortCtrl.signal,
+        title: prefs.title || undefined,
         onProgress: (result) => {
           completed++;
           const pct = Math.round((completed / targetDates.length) * 100);
