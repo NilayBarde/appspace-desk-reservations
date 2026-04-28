@@ -71,6 +71,21 @@ export function createApi(fetchFn, token) {
       });
     },
 
+    async getTodayEvents() {
+      const today = new Date().toISOString().slice(0, 10);
+      const { body } = await request(
+        "GET",
+        `/api/v3/reservation/users/me/events?sort=startAt&status=NotConfirmed%2C%20Pending%2C%20Checkin%2C%20Active&includesourceobject=true&startAt=${today}T05:00:00.000Z&endAt=${today}T23:59:59.999Z&page=1&start=0&limit=20`
+      );
+      return body.items || [];
+    },
+
+    async checkinEvent(eventId, resourceIds) {
+      return request("POST", `/api/v3/reservation/events/${eventId}/checkin`, {
+        resourceIds,
+      });
+    },
+
     async deleteReservation(reservationId) {
       return request("DELETE", `/api/v3/reservation/reservations/${reservationId}`);
     },

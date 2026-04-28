@@ -244,6 +244,43 @@ export function createApp({ api, user, deskLookup, storage }) {
       panel.appendChild(el("div", "dra-status-ok", "You're all set through " + lastDate + "."));
     }
 
+    // Check-in today
+    const today = new Date().toISOString().slice(0, 10);
+    if (own.has(today)) {
+      const todayInfo = own.get(today);
+      const status = (todayInfo.status || "").toLowerCase();
+      if (status !== "active") {
+        const checkinWrap = el("div", "dra-actions");
+        const checkinBtn = el("button", "dra-btn dra-btn-primary", "Check In Today");
+        checkinBtn.addEventListener("click", async () => {
+          checkinBtn.disabled = true;
+          checkinBtn.textContent = "Checking in...";
+          try {
+            const events = await api.getTodayEvents();
+            const toCheckin = events.filter((e) => {
+              const s = (e.status || "").toLowerCase();
+              return s === "checkin" || s === "pending" || s === "notconfirmed";
+            });
+            if (toCheckin.length === 0) {
+              checkinBtn.textContent = "Already checked in";
+              return;
+            }
+            for (const evt of toCheckin) {
+              const rIds = evt.resourceIds && evt.resourceIds.length > 0 ? evt.resourceIds : [resourceId];
+              await api.checkinEvent(evt.id, rIds);
+            }
+            checkinBtn.textContent = "Checked in!";
+            checkinBtn.className = "dra-btn dra-btn-primary";
+          } catch {
+            checkinBtn.textContent = "Check-in failed";
+            checkinBtn.disabled = false;
+          }
+        });
+        checkinWrap.appendChild(checkinBtn);
+        panel.appendChild(checkinWrap);
+      }
+    }
+
     // Actions
     const actions = el("div", "dra-actions");
     const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
