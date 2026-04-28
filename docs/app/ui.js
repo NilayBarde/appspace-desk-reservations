@@ -247,8 +247,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Check-in today
     if (own.has(today)) {
       const todayInfo = own.get(today);
-      const status = (todayInfo.status || "").toLowerCase();
-      if (status !== "active") {
+      const todayStatus = (todayInfo.status || "").toLowerCase();
+      if (todayStatus === "checkin") {
         const checkinWrap = el("div", "dra-actions");
         const checkinBtn = el("button", "dra-btn dra-btn-primary", "Check In Today");
         checkinBtn.addEventListener("click", async () => {
@@ -258,7 +258,7 @@ export function createApp({ api, user, deskLookup, storage }) {
             const events = await api.getTodayEvents();
             const toCheckin = events.filter((e) => {
               const s = (e.status || "").toLowerCase();
-              return s === "checkin" || s === "pending" || s === "notconfirmed";
+              return s === "checkin";
             });
             if (toCheckin.length === 0) {
               checkinBtn.textContent = "Already checked in";
@@ -266,10 +266,13 @@ export function createApp({ api, user, deskLookup, storage }) {
             }
             for (const evt of toCheckin) {
               const rIds = evt.resourceIds && evt.resourceIds.length > 0 ? evt.resourceIds : [resourceId];
-              await api.checkinEvent(evt.id, rIds);
+              const { status } = await api.checkinEvent(evt.id, rIds);
+              if (status === 401 || status === 403) {
+                checkinBtn.textContent = "Session expired";
+                return;
+              }
             }
             checkinBtn.textContent = "Checked in!";
-            checkinBtn.className = "dra-btn dra-btn-primary";
           } catch {
             checkinBtn.textContent = "Check-in failed";
             checkinBtn.disabled = false;
@@ -277,6 +280,8 @@ export function createApp({ api, user, deskLookup, storage }) {
         });
         checkinWrap.appendChild(checkinBtn);
         panel.appendChild(checkinWrap);
+      } else if (todayStatus === "pending" || todayStatus === "notconfirmed") {
+        panel.appendChild(el("p", "dra-hint", "Check-in window hasn't opened yet."));
       }
     }
 
