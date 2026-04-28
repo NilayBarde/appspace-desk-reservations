@@ -259,7 +259,7 @@ export function createApp({ api, user, deskLookup, storage }) {
         checkinWrap.appendChild(checkinBtn);
       } else {
         const canCheckin = todayStatus === "checkin";
-        const checkinBtn = el("button", "dra-btn dra-btn-primary", "Check In Today");
+        const checkinBtn = el("button", "dra-btn dra-btn-primary", "Check In");
         if (!canCheckin) {
           checkinBtn.disabled = true;
           checkinBtn.style.opacity = "0.5";
@@ -302,7 +302,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       panel.appendChild(checkinWrap);
     } else if (isWeekday) {
       const rebookWrap = el("div", "dra-actions");
-      const rebookBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In Today");
+      const rebookBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In");
       rebookBtn.addEventListener("click", async () => {
         rebookBtn.disabled = true;
         rebookBtn.textContent = "Rebooking...";
