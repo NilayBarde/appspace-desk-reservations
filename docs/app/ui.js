@@ -1,5 +1,5 @@
 import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
-import { getTargetDates, bookAllDays, parseExistingBookings, repairBookings } from "./booking-engine.js";
+import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
 import { formatUtcToEt, DOW_NAMES } from "./time.js";
@@ -256,17 +256,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
     panel.appendChild(actions);
 
-    // Auto-repair bookings missing attendees
-    const needsRepair = sorted.filter(([, info]) => !info.hasAttendees);
-    if (needsRepair.length > 0) {
-      repairBookings({
-        api,
-        resourceId,
-        user,
-        bookings: needsRepair,
-        onProgress: () => {},
-      }).catch(() => {});
-    }
 
     // Reservation list
     if (sorted.length > 0) {

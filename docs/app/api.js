@@ -62,24 +62,13 @@ export function createApi(fetchFn, token) {
       });
     },
 
-    async patchEventDate(eventId, dateStr, startTime, endTime, user, resourceId) {
-      const body = {
+    async patchEventDate(eventId, dateStr, startTime, endTime) {
+      return request("PATCH", `/api/v3/reservation/events/${eventId}`, {
         startAt: `${dateStr}T${startTime}`,
         endAt: `${dateStr}T${endTime}`,
         reservationStartAt: `${dateStr}T${startTime}`,
         reservationEndAt: `${dateStr}T${endTime}`,
-      };
-      if (user && resourceId) {
-        body.attendees = [{
-          displayName: user.name,
-          email: user.email,
-          resourceIds: [resourceId],
-          attendanceType: "InPerson",
-          userId: user.id,
-          id: user.id,
-        }];
-      }
-      return request("PATCH", `/api/v3/reservation/events/${eventId}`, body);
+      });
     },
 
     async deleteReservation(reservationId) {

@@ -70,7 +70,7 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr,
     return { ok: false, date: targetDate, error: body.message || `HTTP ${status}` };
   }
 
-  const patchResult = await api.patchEventDate(eventId, targetDate, startTime, endTime, user, resourceId);
+  const patchResult = await api.patchEventDate(eventId, targetDate, startTime, endTime);
   const actualStart = patchResult.body.startAt || "";
 
   if (actualStart.startsWith(targetDate)) {
@@ -178,7 +178,6 @@ export function parseExistingBookings(events, organizerId) {
         status: item.status,
         reservationId: item.reservationId,
         eventId: item.id,
-        hasAttendees: (item.attendees || []).length > 0,
       });
     } else {
       const name = org.name || "Unknown";
@@ -189,20 +188,3 @@ export function parseExistingBookings(events, organizerId) {
   return { own, others };
 }
 
-export async function repairBookings({ api, resourceId, user, bookings, onProgress, signal }) {
-  let repaired = 0;
-  for (const [day, info] of bookings) {
-    if (signal && signal.aborted) throw new Error("CANCELLED");
-    if (info.hasAttendees) {
-      onProgress({ date: day, skipped: true });
-      continue;
-    }
-    const startTime = info.startAt.split("T")[1];
-    const endTime = info.endAt.split("T")[1];
-    await api.patchEventDate(info.eventId, day, startTime, endTime, user, resourceId);
-    repaired++;
-    onProgress({ date: day, ok: true });
-    await sleep(400);
-  }
-  return repaired;
-}
