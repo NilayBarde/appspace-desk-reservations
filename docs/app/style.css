@@ -375,6 +375,24 @@
   margin: 0 0 0.5rem;
 }
 
+.dra-today {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dra-stats {
+  font-size: 0.9rem;
+  color: #555;
+  margin: 0 0 1rem;
+}
+
+.dra-btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .dra-divider {
   border: none;
   border-top: 1px solid #e0e0e0;

@@ -218,11 +218,15 @@ export function createApp({ api, user, deskLookup, storage }) {
     const { own, others } = parseExistingBookings(events, user.id);
     clear();
 
+    const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
     // Header
     const header = el("div", "dra-header");
     const headerInfo = el("div");
-    headerInfo.appendChild(el("h2", "dra-title", "Desk Booking"));
-    headerInfo.appendChild(el("p", "dra-subtitle", user.name + " · " + prefs.desk + " · " + prefs.days.join(", ")));
+    headerInfo.appendChild(el("h2", "dra-title", prefs.desk));
+    const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
+    const todayDayName = DOW_NAMES[todayDow] || "";
+    headerInfo.appendChild(el("p", "dra-subtitle", todayDayName + " · " + user.name));
     header.appendChild(headerInfo);
     const gear = el("button", "dra-gear", "⚙");
     gear.title = "Settings";
@@ -230,51 +234,27 @@ export function createApp({ api, user, deskLookup, storage }) {
     header.appendChild(gear);
     panel.appendChild(header);
 
-    // Conflict warning
-    if (others.size > 0) {
-      const names = [...others.entries()].map(([n, c]) => n + " (" + c + " days)").join(", ");
-      const conflictWarn = el("div", "dra-warning", "This desk also has reservations from: " + names + ". Consider picking a different desk.");
-      panel.appendChild(conflictWarn);
-    }
-
-    // Status banner
-    const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    if (sorted.length > 0) {
-      const lastDate = sorted[sorted.length - 1][0];
-      panel.appendChild(el("div", "dra-status-ok", "You're all set through " + lastDate + "."));
-    }
-
-    // Check-in today
-    const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
+    // Today section
     const isWeekday = todayDow >= 1 && todayDow <= 5;
     if (own.has(today)) {
       const todayInfo = own.get(today);
       const todayStatus = (todayInfo.status || "").toLowerCase();
-      const checkinWrap = el("div", "dra-actions");
+      const todayWrap = el("div", "dra-today");
       if (todayStatus === "active") {
-        const checkinBtn = el("button", "dra-btn dra-btn-primary", "Checked In");
+        const checkinBtn = el("button", "dra-btn dra-btn-primary dra-btn-disabled", "Checked In");
         checkinBtn.disabled = true;
-        checkinBtn.style.opacity = "0.5";
-        checkinBtn.style.cursor = "not-allowed";
-        checkinWrap.appendChild(checkinBtn);
+        todayWrap.appendChild(checkinBtn);
       } else {
         const canCheckin = todayStatus === "checkin";
-        const checkinBtn = el("button", "dra-btn dra-btn-primary", "Check In");
-        if (!canCheckin) {
-          checkinBtn.disabled = true;
-          checkinBtn.style.opacity = "0.5";
-          checkinBtn.style.cursor = "not-allowed";
-        }
+        const checkinBtn = el("button", "dra-btn dra-btn-primary" + (canCheckin ? "" : " dra-btn-disabled"), "Check In");
+        if (!canCheckin) checkinBtn.disabled = true;
         checkinBtn.addEventListener("click", async () => {
           if (!canCheckin) return;
           checkinBtn.disabled = true;
           checkinBtn.textContent = "Checking in...";
           try {
-            const events = await api.getTodayEvents();
-            const toCheckin = events.filter((e) => {
-              const s = (e.status || "").toLowerCase();
-              return s === "checkin";
-            });
+            const todayEvents = await api.getTodayEvents();
+            const toCheckin = todayEvents.filter((e) => (e.status || "").toLowerCase() === "checkin");
             if (toCheckin.length === 0) {
               checkinBtn.textContent = "Already checked in";
               return;
@@ -288,20 +268,20 @@ export function createApp({ api, user, deskLookup, storage }) {
               }
             }
             checkinBtn.textContent = "Checked in!";
+            checkinBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
           } catch {
             checkinBtn.textContent = "Check-in failed";
             checkinBtn.disabled = false;
           }
         });
-        checkinWrap.appendChild(checkinBtn);
+        todayWrap.appendChild(checkinBtn);
         if (!canCheckin) {
-          const hint = el("span", "dra-hint", " Check-in window not open yet");
-          checkinWrap.appendChild(hint);
+          todayWrap.appendChild(el("span", "dra-hint", " Window not open yet"));
         }
       }
-      panel.appendChild(checkinWrap);
+      panel.appendChild(todayWrap);
     } else if (isWeekday) {
-      const rebookWrap = el("div", "dra-actions");
+      const todayWrap = el("div", "dra-today");
       const rebookBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In");
       rebookBtn.addEventListener("click", async () => {
         rebookBtn.disabled = true;
@@ -324,17 +304,30 @@ export function createApp({ api, user, deskLookup, storage }) {
           const eventId = body.events[0].id;
           const { status: ciStatus } = await api.checkinEvent(eventId, [resourceId]);
           if (ciStatus === 401 || ciStatus === 403) {
-            rebookBtn.textContent = "Rebooked (check-in session expired)";
+            rebookBtn.textContent = "Rebooked (check-in failed)";
             return;
           }
           rebookBtn.textContent = "Rebooked & checked in!";
+          rebookBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
         } catch {
           rebookBtn.textContent = "Rebook failed";
           rebookBtn.disabled = false;
         }
       });
-      rebookWrap.appendChild(rebookBtn);
-      panel.appendChild(rebookWrap);
+      todayWrap.appendChild(rebookBtn);
+      panel.appendChild(todayWrap);
+    }
+
+    // Quick stats
+    if (sorted.length > 0) {
+      const lastDate = sorted[sorted.length - 1][0];
+      panel.appendChild(el("p", "dra-stats", sorted.length + " days booked through " + lastDate));
+    }
+
+    // Conflict warning
+    if (others.size > 0) {
+      const names = [...others.entries()].map(([n, c]) => n + " (" + c + " days)").join(", ");
+      panel.appendChild(el("div", "dra-warning", "Desk shared with: " + names));
     }
 
     // Actions
@@ -343,39 +336,14 @@ export function createApp({ api, user, deskLookup, storage }) {
     bookBtn.addEventListener("click", () => renderBookSetup(resourceId, own));
     actions.appendChild(bookBtn);
     if (sorted.length > 0) {
-      const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Select days to cancel");
+      const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Cancel Days");
       cancelBtn.addEventListener("click", () => renderCancel(sorted, resourceId));
       actions.appendChild(cancelBtn);
+      const viewBtn = el("button", "dra-btn dra-btn-secondary", "View All");
+      viewBtn.addEventListener("click", () => renderReservationList(sorted));
+      actions.appendChild(viewBtn);
     }
     panel.appendChild(actions);
-
-
-    // Reservation list
-    if (sorted.length > 0) {
-      panel.appendChild(el("hr", "dra-divider"));
-      panel.appendChild(el("p", "dra-section-label", "Your reservations"));
-      let currentMonth = "";
-      for (const [day, info] of sorted) {
-        const month = day.slice(0, 7);
-        if (month !== currentMonth) {
-          currentMonth = month;
-          const monthDate = new Date(day + "T12:00:00Z");
-          const monthName = monthDate.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-          panel.appendChild(el("p", "dra-month-label", monthName));
-        }
-        const item = el("div", "dra-res-item");
-        const d = new Date(day + "T12:00:00Z");
-        item.appendChild(el("span", "dra-res-date", day));
-        item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
-        const startEt = formatUtcToEt(info.startAt);
-        const endEt = formatUtcToEt(info.endAt);
-        if (startEt && endEt) {
-          item.appendChild(el("span", "dra-res-status", startEt + " – " + endEt));
-        }
-        item.appendChild(el("span", "dra-res-status", info.status || ""));
-        panel.appendChild(item);
-      }
-    }
 
   }
 
@@ -484,6 +452,35 @@ export function createApp({ api, user, deskLookup, storage }) {
     actions.appendChild(backBtn);
     panel.appendChild(actions);
 
+  }
+
+  // ---- RESERVATION LIST VIEW ----
+  function renderReservationList(sorted) {
+    clear();
+    panel.appendChild(el("h2", "dra-title", "All Reservations"));
+
+    let currentMonth = "";
+    for (const [day] of sorted) {
+      const month = day.slice(0, 7);
+      if (month !== currentMonth) {
+        currentMonth = month;
+        const monthDate = new Date(day + "T12:00:00Z");
+        const monthName = monthDate.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+        panel.appendChild(el("p", "dra-month-label", monthName));
+      }
+      const item = el("div", "dra-res-item");
+      const d = new Date(day + "T12:00:00Z");
+      item.appendChild(el("span", "dra-res-date", day));
+      item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
+      panel.appendChild(item);
+    }
+
+    const actions = el("div", "dra-actions");
+    actions.style.marginTop = "1rem";
+    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
+    backBtn.addEventListener("click", () => renderDashboard());
+    actions.appendChild(backBtn);
+    panel.appendChild(actions);
   }
 
   // ---- BOOK SETUP VIEW ----
