@@ -51,12 +51,18 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr,
   const startTime = etToUtc(targetDate, 9, 0);
   const endTime = etToUtc(targetDate, 17, 0);
 
-  if (daysOut(todayStr, targetDate) <= 7) {
-    const { status, body } = await api.createReservation(resourceId, targetDate, startTime, endTime, user, title);
-    checkExpired(status);
-    if (body.events && body.events[0]) return { ok: true, date: targetDate };
-    if ((body.message || "").includes("Having")) return { ok: true, date: targetDate, existing: true };
-    return { ok: false, date: targetDate, error: body.message || "unknown error" };
+  // Always try direct booking first — the API may allow far-future dates directly.
+  const { status: directStatus, body: directBody } = await api.createReservation(resourceId, targetDate, startTime, endTime, user, title);
+  checkExpired(directStatus);
+  if (directBody.events && directBody.events[0]) return { ok: true, date: targetDate };
+  if ((directBody.message || "").includes("Having")) return { ok: true, date: targetDate, existing: true };
+
+  // If direct booking succeeded structurally but no event returned, treat non-4xx as ok.
+  if (directStatus >= 200 && directStatus < 300) return { ok: true, date: targetDate };
+
+  // Direct booking rejected — fall back to park-and-patch only for far dates.
+  if (daysOut(todayStr, targetDate) <= 7 || !parkDate) {
+    return { ok: false, date: targetDate, error: directBody.message || `HTTP ${directStatus}` };
   }
 
   const parkStart = etToUtc(parkDate, 9, 0);
