@@ -71,14 +71,15 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr,
   }
 
   const patchResult = await api.patchEventDate(eventId, targetDate, startTime, endTime);
+  const patchOk = patchResult.status >= 200 && patchResult.status < 300;
   const actualStart = patchResult.body.startAt || "";
 
-  if (actualStart.startsWith(targetDate)) {
+  if (patchOk && (actualStart === "" || actualStart.startsWith(targetDate))) {
     return { ok: true, date: targetDate };
   }
 
   await api.deleteReservation(resId);
-  return { ok: false, date: targetDate, error: `PATCH failed (got ${actualStart || "empty"})` };
+  return { ok: false, date: targetDate, error: `PATCH failed (HTTP ${patchResult.status}${actualStart ? ", got " + actualStart : ""})` };
 }
 
 export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress, signal, title }) {
