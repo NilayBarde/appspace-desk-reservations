@@ -317,7 +317,7 @@ export function createApp({ api, user, deskLookup, storage }) {
           const { hour: rEH, minute: rEM } = parseTime(rebookPrefs.endTime);
           const startTime = etToUtc(today, rSH, rSM);
           const endTime = etToUtc(today, rEH, rEM);
-          const title = prefs.title || undefined;
+          const title = rebookPrefs.title || undefined;
           const { status, body } = await api.createReservation(resourceId, today, startTime, endTime, user, title);
           if (status === 401 || status === 403) {
             rebookBtn.textContent = "Session expired";

@@ -47,7 +47,7 @@ function checkExpired(status) {
   }
 }
 
-async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title, startHour, startMin, endHour, endMin) {
+async function bookOneDay({ api, resourceId, targetDate, parkDate, user, todayStr, title, startHour, startMin, endHour, endMin }) {
   const startTime = etToUtc(targetDate, startHour, startMin);
   const endTime = etToUtc(targetDate, endHour, endMin);
 
@@ -103,7 +103,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
 
   for (const targetDate of directDates) {
     if (signal && signal.aborted) throw new Error("CANCELLED");
-    const result = await bookOneDay(api, resourceId, targetDate, null, user, todayStr, title, startHour, startMin, endHour, endMin);
+    const result = await bookOneDay({ api, resourceId, targetDate, parkDate: null, user, todayStr, title, startHour, startMin, endHour, endMin });
     onProgress(result);
     if (result.ok) booked.add(targetDate);
     await sleep(400);
@@ -151,7 +151,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   for (const targetDate of farDates) {
     if (signal && signal.aborted) throw new Error("CANCELLED");
     const parkDate = parkCandidates[parkIdx % parkCandidates.length];
-    const result = await bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title, startHour, startMin, endHour, endMin);
+    const result = await bookOneDay({ api, resourceId, targetDate, parkDate, user, todayStr, title, startHour, startMin, endHour, endMin });
     onProgress(result);
 
     if (result.ok) {
@@ -163,7 +163,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   }
 
   if (freedParkDate && !booked.has(freedParkDate)) {
-    const rebookResult = await bookOneDay(api, resourceId, freedParkDate, freedParkDate, user, todayStr, title, startHour, startMin, endHour, endMin);
+    const rebookResult = await bookOneDay({ api, resourceId, targetDate: freedParkDate, parkDate: freedParkDate, user, todayStr, title, startHour, startMin, endHour, endMin });
     onProgress(rebookResult);
   }
 
