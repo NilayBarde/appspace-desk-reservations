@@ -47,9 +47,9 @@ function checkExpired(status) {
   }
 }
 
-async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title) {
-  const startTime = etToUtc(targetDate, 9, 0);
-  const endTime = etToUtc(targetDate, 17, 0);
+async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title, startHour, startMin, endHour, endMin) {
+  const startTime = etToUtc(targetDate, startHour, startMin);
+  const endTime = etToUtc(targetDate, endHour, endMin);
 
   // Always try direct booking first — the API may allow far-future dates directly.
   const { status: directStatus, body: directBody } = await api.createReservation(resourceId, targetDate, startTime, endTime, user, title);
@@ -65,8 +65,8 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr,
     return { ok: false, date: targetDate, error: directBody.message || `HTTP ${directStatus}` };
   }
 
-  const parkStart = etToUtc(parkDate, 9, 0);
-  const parkEnd = etToUtc(parkDate, 17, 0);
+  const parkStart = etToUtc(parkDate, startHour, startMin);
+  const parkEnd = etToUtc(parkDate, endHour, endMin);
   const { status, body } = await api.createReservation(resourceId, parkDate, parkStart, parkEnd, user, title);
   checkExpired(status);
   const eventId = body.events && body.events[0] && body.events[0].id;
@@ -88,7 +88,7 @@ async function bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr,
   return { ok: false, date: targetDate, error: `PATCH failed (HTTP ${patchResult.status}${actualStart ? ", got " + actualStart : ""})` };
 }
 
-export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress, signal, title }) {
+export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress, signal, title, startHour = 9, startMin = 0, endHour = 17, endMin = 0 }) {
   const directDates = [];
   const farDates = [];
   for (const d of targetDates) {
@@ -103,7 +103,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
 
   for (const targetDate of directDates) {
     if (signal && signal.aborted) throw new Error("CANCELLED");
-    const result = await bookOneDay(api, resourceId, targetDate, null, user, todayStr, title);
+    const result = await bookOneDay(api, resourceId, targetDate, null, user, todayStr, title, startHour, startMin, endHour, endMin);
     onProgress(result);
     if (result.ok) booked.add(targetDate);
     await sleep(400);
@@ -151,7 +151,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   for (const targetDate of farDates) {
     if (signal && signal.aborted) throw new Error("CANCELLED");
     const parkDate = parkCandidates[parkIdx % parkCandidates.length];
-    const result = await bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title);
+    const result = await bookOneDay(api, resourceId, targetDate, parkDate, user, todayStr, title, startHour, startMin, endHour, endMin);
     onProgress(result);
 
     if (result.ok) {
@@ -163,7 +163,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   }
 
   if (freedParkDate && !booked.has(freedParkDate)) {
-    const rebookResult = await bookOneDay(api, resourceId, freedParkDate, freedParkDate, user, todayStr, title);
+    const rebookResult = await bookOneDay(api, resourceId, freedParkDate, freedParkDate, user, todayStr, title, startHour, startMin, endHour, endMin);
     onProgress(rebookResult);
   }
 

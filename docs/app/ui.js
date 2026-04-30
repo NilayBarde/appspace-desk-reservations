@@ -1,4 +1,4 @@
-import { loadPrefs, savePrefs, saveLastBookedDate } from "./preferences.js";
+import { loadPrefs, savePrefs, saveLastBookedDate, parseTime } from "./preferences.js";
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
@@ -171,6 +171,28 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(titleInput);
     panel.appendChild(el("p", "dra-hint", "Shows in Appspace as reservation title. Leave blank for default."));
 
+    // Booking hours
+    panel.appendChild(el("hr", "dra-divider"));
+    panel.appendChild(el("p", "dra-section-label", "Booking hours"));
+    const timeRow = el("div", "dra-days");
+    timeRow.style.alignItems = "center";
+    timeRow.style.gap = "0.5rem";
+    const startTimeInput = el("input", "dra-search");
+    startTimeInput.type = "time";
+    startTimeInput.value = prefs.startTime || "09:00";
+    startTimeInput.style.width = "7rem";
+    const toLabel = el("span", "dra-hint", "to");
+    toLabel.style.margin = "0 0.25rem";
+    const endTimeInput = el("input", "dra-search");
+    endTimeInput.type = "time";
+    endTimeInput.value = prefs.endTime || "17:00";
+    endTimeInput.style.width = "7rem";
+    timeRow.appendChild(startTimeInput);
+    timeRow.appendChild(toLabel);
+    timeRow.appendChild(endTimeInput);
+    panel.appendChild(timeRow);
+    panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET) and adjust automatically for daylight saving."));
+
     // No-show warning
     const warn = el("div", "dra-warning", "Only select days you'll actually be in. Appspace tracks no-shows.");
     panel.appendChild(warn);
@@ -181,7 +203,10 @@ export function createApp({ api, user, deskLookup, storage }) {
     saveBtn.addEventListener("click", () => {
       if (!selectedDesk) { window.alert("Please select a desk."); return; }
       if (selectedDays.size === 0) { window.alert("Please select at least one day."); return; }
-      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays], title: titleInput.value.trim() });
+      const startTime = startTimeInput.value || "09:00";
+      const endTime = endTimeInput.value || "17:00";
+      if (startTime >= endTime) { window.alert("Start time must be before end time."); return; }
+      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays], title: titleInput.value.trim(), startTime, endTime });
       renderDashboard();
     });
     panel.appendChild(saveBtn);
@@ -287,8 +312,11 @@ export function createApp({ api, user, deskLookup, storage }) {
         rebookBtn.disabled = true;
         rebookBtn.textContent = "Rebooking...";
         try {
-          const startTime = etToUtc(today, 9, 0);
-          const endTime = etToUtc(today, 17, 0);
+          const rebookPrefs = loadPrefs(storage);
+          const { hour: rSH, minute: rSM } = parseTime(rebookPrefs.startTime);
+          const { hour: rEH, minute: rEM } = parseTime(rebookPrefs.endTime);
+          const startTime = etToUtc(today, rSH, rSM);
+          const endTime = etToUtc(today, rEH, rEM);
           const title = prefs.title || undefined;
           const { status, body } = await api.createReservation(resourceId, today, startTime, endTime, user, title);
           if (status === 401 || status === 403) {
@@ -621,6 +649,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     let lastBooked = null;
 
     const prefs = loadPrefs(storage);
+    const { hour: startHour, minute: startMin } = parseTime(prefs.startTime);
+    const { hour: endHour, minute: endMin } = parseTime(prefs.endTime);
     try {
       await bookAllDays({
         api,
@@ -630,6 +660,10 @@ export function createApp({ api, user, deskLookup, storage }) {
         todayStr: new Date().toISOString().slice(0, 10),
         signal: abortCtrl.signal,
         title: prefs.title || undefined,
+        startHour,
+        startMin,
+        endHour,
+        endMin,
         onProgress: (result) => {
           completed++;
           const pct = Math.round((completed / targetDates.length) * 100);
