@@ -215,144 +215,170 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
 
     panel.appendChild(el("hr", "dra-divider"));
-    panel.appendChild(el("p", "dra-subtitle", "Loading your bookings..."));
+
+    // Render buttons immediately (disabled), enable after data loads
+    const statusEl = el("p", "dra-stats", "Loading bookings...");
+    panel.appendChild(statusEl);
 
     const today = new Date().toISOString().slice(0, 10);
-    const endDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+    const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
+    const isWeekday = todayDow >= 1 && todayDow <= 5;
 
+    const checkinBtn = el("button", "dra-btn dra-btn-primary dra-btn-disabled", "Check In");
+    checkinBtn.style.width = "100%";
+    checkinBtn.disabled = true;
+
+    const bookBtn = el("button", "dra-btn dra-btn-primary dra-btn-disabled", "Book New Days");
+    bookBtn.style.width = "100%";
+    bookBtn.disabled = true;
+
+    const primaryRow = el("div", "dra-actions");
+    primaryRow.style.display = "grid";
+    primaryRow.style.gridTemplateColumns = isWeekday ? "1fr 1fr" : "1fr";
+    if (isWeekday) primaryRow.appendChild(checkinBtn);
+    primaryRow.appendChild(bookBtn);
+    panel.appendChild(primaryRow);
+
+    const secondaryRow = el("div", "dra-actions");
+    secondaryRow.style.marginTop = "0.5rem";
+    secondaryRow.style.display = "grid";
+    secondaryRow.style.gridTemplateColumns = "1fr 1fr 1fr";
+    const cancelBtn = el("button", "dra-btn dra-btn-secondary dra-btn-disabled", "Cancel Days");
+    cancelBtn.disabled = true;
+    secondaryRow.appendChild(cancelBtn);
+    const editTimesBtn = el("button", "dra-btn dra-btn-secondary dra-btn-disabled", "Edit Times");
+    editTimesBtn.disabled = true;
+    secondaryRow.appendChild(editTimesBtn);
+    const viewBtn = el("button", "dra-btn dra-btn-secondary dra-btn-disabled", "View All Bookings");
+    viewBtn.disabled = true;
+    secondaryRow.appendChild(viewBtn);
+    panel.appendChild(secondaryRow);
+
+    // Fetch data then enable
+    const endDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
     let events;
     try {
       events = await api.getResourceEvents(resourceId, today, endDate);
     } catch {
-      panel.appendChild(el("div", "dra-error", "Failed to load bookings. Your session may have expired."));
+      statusEl.className = "dra-error";
+      statusEl.textContent = "Failed to load bookings. Your session may have expired.";
       return;
     }
 
     const { own, others } = parseExistingBookings(events, user.id);
-
-    // Remove the loading message
-    const loadingMsg = panel.querySelector(".dra-subtitle:last-of-type");
-    if (loadingMsg && loadingMsg.textContent === "Loading your bookings...") loadingMsg.remove();
-
     const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
-    // Today section
-    const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
-    const isWeekday = todayDow >= 1 && todayDow <= 5;
-    let todayBtn = null;
-    if (own.has(today)) {
-      const todayInfo = own.get(today);
-      const todayStatus = (todayInfo.status || "").toLowerCase();
-      const canCheckin = todayStatus === "checkin";
-      const alreadyCheckedIn = todayStatus === "active";
-      todayBtn = el("button", "dra-btn dra-btn-primary" + (canCheckin ? "" : " dra-btn-disabled"), "Check In");
-      if (!canCheckin) todayBtn.disabled = true;
-      if (!alreadyCheckedIn) {
-        todayBtn.addEventListener("click", async () => {
-          if (!canCheckin) return;
-          todayBtn.disabled = true;
-          todayBtn.textContent = "Checking in...";
-          try {
-            const todayEvents = await api.getTodayEvents();
-            const toCheckin = todayEvents.filter((e) => (e.status || "").toLowerCase() === "checkin");
-            if (toCheckin.length === 0) {
-              todayBtn.textContent = "Already checked in";
-              return;
-            }
-            for (const evt of toCheckin) {
-              const rIds = evt.resourceIds && evt.resourceIds.length > 0 ? evt.resourceIds : [resourceId];
-              const { status } = await api.checkinEvent(evt.id, rIds);
-              if (status === 401 || status === 403) {
-                todayBtn.textContent = "Session expired";
-                return;
-              }
-            }
-            todayBtn.textContent = "Checked in!";
-            todayBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
-          } catch {
-            todayBtn.textContent = "Check-in failed";
-            todayBtn.disabled = false;
-          }
-        });
-      }
-    } else if (isWeekday) {
-      todayBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In");
-      todayBtn.addEventListener("click", async () => {
-        todayBtn.disabled = true;
-        todayBtn.textContent = "Rebooking...";
-        try {
-          const rebookPrefs = loadPrefs(storage);
-          const { hour: rSH, minute: rSM } = parseTime(rebookPrefs.startTime);
-          const { hour: rEH, minute: rEM } = parseTime(rebookPrefs.endTime);
-          const startTime = etToUtc(today, rSH, rSM);
-          const endTime = etToUtc(today, rEH, rEM);
-          const title = rebookPrefs.title || undefined;
-          const { status, body } = await api.createReservation(resourceId, today, startTime, endTime, user, title);
-          if (status === 401 || status === 403) {
-            todayBtn.textContent = "Session expired";
-            return;
-          }
-          if (!body.events || !body.events[0]) {
-            todayBtn.textContent = body.message || "Rebook failed";
-            todayBtn.disabled = false;
-            return;
-          }
-          todayBtn.textContent = "Checking in...";
-          const eventId = body.events[0].id;
-          const { status: ciStatus } = await api.checkinEvent(eventId, [resourceId]);
-          if (ciStatus === 401 || ciStatus === 403) {
-            todayBtn.textContent = "Rebooked (check-in failed)";
-            return;
-          }
-          todayBtn.textContent = "Rebooked & checked in!";
-          todayBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
-        } catch {
-          todayBtn.textContent = "Rebook failed";
-          todayBtn.disabled = false;
-        }
-      });
-    }
-
-    // Quick stats
+    // Update status
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1][0];
-      panel.appendChild(el("p", "dra-stats", sorted.length + " days booked through " + lastDate));
+      statusEl.textContent = sorted.length + " days booked through " + lastDate;
+    } else {
+      statusEl.textContent = "No upcoming bookings.";
     }
 
     // Conflict warning
     if (others.size > 0) {
       const names = [...others.entries()].map(([n, c]) => n + " (" + c + " days)").join(", ");
-      panel.appendChild(el("div", "dra-warning", "Desk shared with: " + names));
+      const warning = el("div", "dra-warning", "Desk shared with: " + names);
+      panel.insertBefore(warning, primaryRow);
     }
 
-    // Actions
-    const primaryRow = el("div", "dra-actions");
-    primaryRow.style.display = "grid";
-    primaryRow.style.gridTemplateColumns = todayBtn ? "1fr 1fr" : "1fr";
-    if (todayBtn) {
-      todayBtn.style.width = "100%";
-      primaryRow.appendChild(todayBtn);
+    // Enable Check In / Rebook button
+    if (isWeekday) {
+      if (own.has(today)) {
+        const todayInfo = own.get(today);
+        const todayStatus = (todayInfo.status || "").toLowerCase();
+        const canCheckin = todayStatus === "checkin";
+        const alreadyCheckedIn = todayStatus === "active";
+        if (canCheckin) {
+          checkinBtn.className = "dra-btn dra-btn-primary";
+          checkinBtn.disabled = false;
+        }
+        if (!alreadyCheckedIn) {
+          checkinBtn.addEventListener("click", async () => {
+            if (!canCheckin) return;
+            checkinBtn.disabled = true;
+            checkinBtn.textContent = "Checking in...";
+            try {
+              const todayEvents = await api.getTodayEvents();
+              const toCheckin = todayEvents.filter((e) => (e.status || "").toLowerCase() === "checkin");
+              if (toCheckin.length === 0) {
+                checkinBtn.textContent = "Already checked in";
+                return;
+              }
+              for (const evt of toCheckin) {
+                const rIds = evt.resourceIds && evt.resourceIds.length > 0 ? evt.resourceIds : [resourceId];
+                const { status } = await api.checkinEvent(evt.id, rIds);
+                if (status === 401 || status === 403) {
+                  checkinBtn.textContent = "Session expired";
+                  return;
+                }
+              }
+              checkinBtn.textContent = "Checked in!";
+              checkinBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
+            } catch {
+              checkinBtn.textContent = "Check-in failed";
+              checkinBtn.disabled = false;
+            }
+          });
+        }
+      } else {
+        checkinBtn.textContent = "Rebook & Check In";
+        checkinBtn.className = "dra-btn dra-btn-primary";
+        checkinBtn.disabled = false;
+        checkinBtn.addEventListener("click", async () => {
+          checkinBtn.disabled = true;
+          checkinBtn.textContent = "Rebooking...";
+          try {
+            const rebookPrefs = loadPrefs(storage);
+            const { hour: rSH, minute: rSM } = parseTime(rebookPrefs.startTime);
+            const { hour: rEH, minute: rEM } = parseTime(rebookPrefs.endTime);
+            const startTime = etToUtc(today, rSH, rSM);
+            const endTime = etToUtc(today, rEH, rEM);
+            const title = rebookPrefs.title || undefined;
+            const { status, body } = await api.createReservation(resourceId, today, startTime, endTime, user, title);
+            if (status === 401 || status === 403) {
+              checkinBtn.textContent = "Session expired";
+              return;
+            }
+            if (!body.events || !body.events[0]) {
+              checkinBtn.textContent = body.message || "Rebook failed";
+              checkinBtn.disabled = false;
+              return;
+            }
+            checkinBtn.textContent = "Checking in...";
+            const eventId = body.events[0].id;
+            const { status: ciStatus } = await api.checkinEvent(eventId, [resourceId]);
+            if (ciStatus === 401 || ciStatus === 403) {
+              checkinBtn.textContent = "Rebooked (check-in failed)";
+              return;
+            }
+            checkinBtn.textContent = "Rebooked & checked in!";
+            checkinBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
+          } catch {
+            checkinBtn.textContent = "Rebook failed";
+            checkinBtn.disabled = false;
+          }
+        });
+      }
     }
-    const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
-    bookBtn.style.width = "100%";
+
+    // Enable Book button
+    bookBtn.className = "dra-btn dra-btn-primary";
+    bookBtn.disabled = false;
     bookBtn.addEventListener("click", () => renderBookSetup(resourceId, own));
-    primaryRow.appendChild(bookBtn);
-    panel.appendChild(primaryRow);
+
+    // Enable secondary buttons if there are bookings
     if (sorted.length > 0) {
-      const actions = el("div", "dra-actions");
-      actions.style.marginTop = "0.5rem";
-      actions.style.display = "grid";
-      actions.style.gridTemplateColumns = "1fr 1fr 1fr";
-      const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Cancel Days");
+      cancelBtn.className = "dra-btn dra-btn-secondary";
+      cancelBtn.disabled = false;
       cancelBtn.addEventListener("click", () => renderCancel(sorted, resourceId));
-      actions.appendChild(cancelBtn);
-      const editTimesBtn = el("button", "dra-btn dra-btn-secondary", "Edit Times");
+      editTimesBtn.className = "dra-btn dra-btn-secondary";
+      editTimesBtn.disabled = false;
       editTimesBtn.addEventListener("click", () => renderEditTimes(sorted, resourceId));
-      actions.appendChild(editTimesBtn);
-      const viewBtn = el("button", "dra-btn dra-btn-secondary", "View All Bookings");
+      viewBtn.className = "dra-btn dra-btn-secondary";
+      viewBtn.disabled = false;
       viewBtn.addEventListener("click", () => renderReservationList(sorted));
-      actions.appendChild(viewBtn);
-      panel.appendChild(actions);
     }
   }
 
