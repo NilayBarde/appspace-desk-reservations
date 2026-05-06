@@ -522,7 +522,9 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(el("p", "dra-section-label", "New times"));
     const { row: timeRow, startInput: startTimeInput, endInput: endTimeInput } = buildTimeRow(prefs.startTime || "09:00", prefs.endTime || "17:00");
     panel.appendChild(timeRow);
-    panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET). Each date is converted to UTC accounting for DST."));
+    const etHint = el("p", "dra-hint", "Times are Eastern (ET).");
+    etHint.style.fontSize = "0.72rem";
+    panel.appendChild(etHint);
 
     const { frag, checked } = buildDatePicker({
       sorted,
