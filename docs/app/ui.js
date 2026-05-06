@@ -261,7 +261,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       const detailList = el("div", "dra-scroll-list");
       detailList.style.maxHeight = "12rem";
       detailList.style.display = "none";
-      detailList.style.marginTop = "0.5rem";
+      detailList.style.margin = "0.5rem 0 1rem";
       let currentMonth = "";
       for (const [day] of sorted) {
         const month = day.slice(0, 7);
