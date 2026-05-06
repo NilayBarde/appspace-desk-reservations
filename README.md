@@ -5,20 +5,24 @@ Browser-based desk reservation tool for Appspace. Book months of weekday desk re
 ## How It Works
 
 1. **One-time setup**: Visit the [setup page](https://nilaybarde.github.io/appspace-desk-reservations/), drag "Book My Desk" to your bookmarks bar
-2. **Every ~3 months**: Log into Appspace → click the bookmark → pick your desk, days, and horizon → done
+2. **Every ~3 months**: Log into Appspace → click the bookmark → pick your desk, days, hours, and horizon → done
 3. **Vacation**: Click the bookmark → select days to cancel → confirm
+4. **Change hours**: Click the bookmark → adjust hours (auto-saves) or use "Edit Times" to bulk-update existing reservations
 
-The bookmarklet reads your Appspace session directly from the browser (same-origin, no tokens leave the page) and books up to a year of reservations in one session using a park-and-patch technique.
+The bookmarklet reads your Appspace session directly from the browser (same-origin, no tokens leave the page) and books up to 90 days of reservations in one session using a park-and-patch technique.
 
 ## Features
 
-- **One-click booking**: Book 90-365 days of weekday reservations in ~2-4 minutes
+- **One-click booking**: Book up to 90 days of weekday reservations in ~1-2 minutes
 - **Desk search with availability**: Search 32K+ desks, see who currently occupies each one
-- **Flexible scheduling**: Pick specific weekdays (Mon-Fri), set booking horizon (3mo / 6mo / 1yr / custom)
+- **Flexible scheduling**: Pick specific weekdays (Mon-Fri), set booking horizon (1mo / 2mo / 3mo / custom)
+- **Custom hours**: Choose your own start/end times (in ET, auto-adjusts for DST)
+- **Mass edit times**: Bulk-update hours on existing reservations via the "Edit Times" view
 - **Vacation cancellation**: Bulk-cancel date ranges or individual days
 - **Conflict detection**: Warns if someone else has the desk reserved
 - **No-show warning**: Reminds users to only book days they'll actually attend
-- **Status dashboard**: See when your bookings end, when to re-book
+- **Unified layout**: Settings, status, and actions all on one page — auto-saves as you change
+- **Check-in / Rebook**: One-click check-in or rebook for today directly from the main view
 - **Token-safe**: Works within the 20-minute Appspace token TTL — no stored tokens
 
 ## Setup
@@ -29,8 +33,8 @@ The bookmarklet reads your Appspace session directly from the browser (same-orig
 2. Drag the **Book My Desk** button to your bookmarks bar
 3. Log into [Appspace](https://disney.cloud.appspace.com/)
 4. Click **Book My Desk** in your bookmarks bar
-5. First time: search for your desk, pick your weekdays, set horizon
-6. Click **Save & Continue** → **Book New Days**
+5. First time: search for your desk, pick your weekdays and hours (all settings auto-save)
+6. Click **Book New Days** → choose horizon → Book
 
 ### For Repo Maintainers
 
@@ -96,7 +100,7 @@ appspace-desk-reservations/
 │   ├── index.html                 # Bookmarklet setup page
 │   └── app/
 │       ├── main.js                # Entry point (loaded by bookmarklet)
-│       ├── ui.js                  # Overlay UI (setup, dashboard, cancel, progress)
+│       ├── ui.js                  # Overlay UI (main, book, cancel, edit times, progress)
 │       ├── api.js                 # Appspace API wrapper
 │       ├── booking-engine.js      # Park-and-patch booking logic
 │       ├── identity.js            # JWT parsing and token extraction
@@ -145,11 +149,11 @@ Appspace limits direct reservations to 7 days out. To book further:
 2. PATCH the event's start/end dates to the actual target date
 3. If the PATCH fails, DELETE the park reservation and try the next available park date
 
-This allows booking up to a year ahead. The booking loop runs at 400ms per day to avoid rate limits.
+This allows booking up to 90 days ahead. The booking loop runs at 400ms per day to avoid rate limits.
 
 ### Token Handling
 
-The app reads `sessionStorage.jwt` on the Appspace domain — same-origin, no CORS. Tokens have a 20-minute TTL. Booking 90 days takes ~1-2 minutes; 365 days takes ~4 minutes. If the token expires mid-booking, progress is saved to `localStorage` and resumed on next run.
+The app reads `sessionStorage.jwt` on the Appspace domain — same-origin, no CORS. Tokens have a 20-minute TTL. Booking 90 days takes ~1-2 minutes. If the token expires mid-booking, progress is saved to `localStorage` and resumed on next run.
 
 ### Holidays
 
