@@ -683,7 +683,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       return;
     }
 
-    panel.appendChild(el("p", "dra-hint", existingCount + " days booked, " + remaining + " remaining."));
+    panel.appendChild(el("p", "dra-hint", existingCount + " days booked (limit: " + MAX_BOOKING_DAYS + ")."));
 
     panel.appendChild(el("p", "dra-section-label", "How many days out?"));
     const horizonRow = el("div", "dra-horizon");
