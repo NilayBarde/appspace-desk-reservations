@@ -519,6 +519,8 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     const rangeBtn = el("button", "dra-btn dra-btn-secondary", "Select Range");
     rangePicker.appendChild(rangeBtn);
+    const selectAllBtn = el("button", "dra-btn dra-btn-secondary", "Select All");
+    rangePicker.appendChild(selectAllBtn);
     panel.appendChild(rangePicker);
 
     // Count
@@ -563,6 +565,14 @@ export function createApp({ api, user, deskLookup, storage }) {
           cb.checked = true;
           checked.add(day);
         }
+      }
+      updateCount();
+    });
+
+    selectAllBtn.addEventListener("click", () => {
+      for (const { day, cb } of checkboxes) {
+        cb.checked = true;
+        checked.add(day);
       }
       updateCount();
     });
