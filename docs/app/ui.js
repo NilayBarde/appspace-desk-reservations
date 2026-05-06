@@ -230,16 +230,13 @@ export function createApp({ api, user, deskLookup, storage }) {
     const secondaryRow = el("div", "dra-actions");
     secondaryRow.style.marginTop = "0.5rem";
     secondaryRow.style.display = "grid";
-    secondaryRow.style.gridTemplateColumns = "1fr 1fr 1fr";
+    secondaryRow.style.gridTemplateColumns = "1fr 1fr";
     const cancelBtn = el("button", "dra-btn dra-btn-secondary dra-btn-disabled", "Cancel Days");
     cancelBtn.disabled = true;
     secondaryRow.appendChild(cancelBtn);
     const editTimesBtn = el("button", "dra-btn dra-btn-secondary dra-btn-disabled", "Edit Times");
     editTimesBtn.disabled = true;
     secondaryRow.appendChild(editTimesBtn);
-    const viewBtn = el("button", "dra-btn dra-btn-secondary dra-btn-disabled", "View All Bookings");
-    viewBtn.disabled = true;
-    secondaryRow.appendChild(viewBtn);
     panel.appendChild(secondaryRow);
 
     // Fetch data then enable
@@ -256,10 +253,36 @@ export function createApp({ api, user, deskLookup, storage }) {
     const { own, others } = parseExistingBookings(events, user.id);
     const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
-    // Update status
+    // Update status (expandable)
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1][0];
-      statusEl.textContent = sorted.length + " days booked through " + lastDate;
+      statusEl.textContent = sorted.length + " days booked through " + lastDate + " ▸";
+      statusEl.style.cursor = "pointer";
+      const detailList = el("div", "dra-scroll-list");
+      detailList.style.maxHeight = "12rem";
+      detailList.style.display = "none";
+      detailList.style.marginTop = "0.5rem";
+      let currentMonth = "";
+      for (const [day] of sorted) {
+        const month = day.slice(0, 7);
+        if (month !== currentMonth) {
+          currentMonth = month;
+          const monthDate = new Date(day + "T12:00:00Z");
+          const monthName = monthDate.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+          detailList.appendChild(el("p", "dra-month-label", monthName));
+        }
+        const item = el("div", "dra-res-item");
+        const d = new Date(day + "T12:00:00Z");
+        item.appendChild(el("span", "dra-res-date", day));
+        item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
+        detailList.appendChild(item);
+      }
+      statusEl.after(detailList);
+      statusEl.addEventListener("click", () => {
+        const open = detailList.style.display !== "none";
+        detailList.style.display = open ? "none" : "";
+        statusEl.textContent = sorted.length + " days booked through " + lastDate + (open ? " ▸" : " ▾");
+      });
     } else {
       statusEl.textContent = "No upcoming bookings.";
     }
@@ -364,9 +387,6 @@ export function createApp({ api, user, deskLookup, storage }) {
       editTimesBtn.className = "dra-btn dra-btn-secondary";
       editTimesBtn.disabled = false;
       editTimesBtn.addEventListener("click", () => renderEditTimes(sorted, resourceId));
-      viewBtn.className = "dra-btn dra-btn-secondary";
-      viewBtn.disabled = false;
-      viewBtn.addEventListener("click", () => renderReservationList(sorted));
     }
   }
 
@@ -622,38 +642,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(actions);
   }
 
-  // ---- RESERVATION LIST VIEW ----
-  function renderReservationList(sorted) {
-    clear();
-    panel.appendChild(el("h2", "dra-title", "All Reservations"));
-
-    const listWrap = el("div", "dra-scroll-list");
-    listWrap.style.maxHeight = "20rem";
-
-    let currentMonth = "";
-    for (const [day] of sorted) {
-      const month = day.slice(0, 7);
-      if (month !== currentMonth) {
-        currentMonth = month;
-        const monthDate = new Date(day + "T12:00:00Z");
-        const monthName = monthDate.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-        listWrap.appendChild(el("p", "dra-month-label", monthName));
-      }
-      const item = el("div", "dra-res-item");
-      const d = new Date(day + "T12:00:00Z");
-      item.appendChild(el("span", "dra-res-date", day));
-      item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
-      listWrap.appendChild(item);
-    }
-    panel.appendChild(listWrap);
-
-    const actions = el("div", "dra-actions");
-    actions.style.marginTop = "1rem";
-    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
-    backBtn.addEventListener("click", () => renderMain());
-    actions.appendChild(backBtn);
-    panel.appendChild(actions);
-  }
 
   // ---- BOOK SETUP VIEW ----
   function renderBookSetup(resourceId, existingOwn) {
