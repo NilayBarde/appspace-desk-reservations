@@ -256,42 +256,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Update status (expandable)
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1][0];
-      statusEl.textContent = sorted.length + " days booked through " + lastDate + " ▸";
-      statusEl.style.cursor = "pointer";
-      const detailWrap = el("div");
-      detailWrap.style.position = "relative";
-      const detailList = el("div", "dra-scroll-list");
-      detailList.style.maxHeight = "14rem";
-      detailList.style.display = "none";
-      detailList.style.position = "absolute";
-      detailList.style.left = "0";
-      detailList.style.right = "0";
-      detailList.style.zIndex = "10";
-      detailList.style.background = "#fff";
-      detailList.style.marginTop = "0.25rem";
-      detailList.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
-      let currentMonth = "";
-      for (const [day] of sorted) {
-        const month = day.slice(0, 7);
-        if (month !== currentMonth) {
-          currentMonth = month;
-          const monthDate = new Date(day + "T12:00:00Z");
-          const monthName = monthDate.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-          detailList.appendChild(el("p", "dra-month-label", monthName));
-        }
-        const item = el("div", "dra-res-item");
-        const d = new Date(day + "T12:00:00Z");
-        item.appendChild(el("span", "dra-res-date", day));
-        item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
-        detailList.appendChild(item);
-      }
-      detailWrap.appendChild(detailList);
-      statusEl.after(detailWrap);
-      statusEl.addEventListener("click", () => {
-        const open = detailList.style.display !== "none";
-        detailList.style.display = open ? "none" : "";
-        statusEl.textContent = sorted.length + " days booked through " + lastDate + (open ? " ▸" : " ▾");
-      });
+      statusEl.textContent = sorted.length + " days booked through " + lastDate;
     } else {
       statusEl.textContent = "No upcoming bookings.";
     }
