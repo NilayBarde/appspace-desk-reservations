@@ -177,7 +177,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     timeRow.appendChild(toLabel);
     timeRow.appendChild(endTimeInput);
     panel.appendChild(timeRow);
-    panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET) and adjust automatically for daylight saving."));
 
     function saveTimesIfValid() {
       const s = startTimeInput.value || "09:00";
