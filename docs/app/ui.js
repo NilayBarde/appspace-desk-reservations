@@ -518,11 +518,11 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     panel.appendChild(el("h2", "dra-title", "Edit Times"));
     const { row: timeRow, startInput: startTimeInput, endInput: endTimeInput } = buildTimeRow(prefs.startTime || "09:00", prefs.endTime || "17:00");
-    panel.appendChild(timeRow);
-    const etHint = el("p", "dra-hint", "Eastern (ET)");
+    const etHint = el("span", "dra-hint", "ET");
     etHint.style.fontSize = "0.72rem";
-    etHint.style.margin = "0.25rem 0 0.75rem";
-    panel.appendChild(etHint);
+    timeRow.appendChild(etHint);
+    panel.appendChild(timeRow);
+    panel.appendChild(el("hr", "dra-divider"));
 
     const { frag, checked } = buildDatePicker({
       sorted,
