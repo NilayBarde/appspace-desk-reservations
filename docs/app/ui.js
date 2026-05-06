@@ -156,6 +156,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       daysRow.appendChild(btn);
     }
     panel.appendChild(daysRow);
+    panel.appendChild(el("p", "dra-hint", "Appspace tracks no-shows — only book days you'll be in."));
 
     // Hours
     panel.appendChild(el("hr", "dra-divider"));
@@ -205,9 +206,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     titleInput.addEventListener("blur", () => {
       savePrefs(storage, { title: titleInput.value.trim() });
     });
-
-    // No-show warning
-    panel.appendChild(el("p", "dra-hint", "Appspace tracks no-shows — only book days you'll be in."));
 
     // == Section B & C: Status + Actions (only if desk configured) ==
     const resourceId = selectedDesk ? deskLookup[selectedDesk.name] : null;
