@@ -30,17 +30,16 @@ async function init() {
   }
 
   const existingStyle = document.getElementById("desk-res-style");
-  if (!existingStyle) {
-    try {
-      const cssRes = await fetch(PAGES_BASE + "/style.css");
-      const cssText = await cssRes.text();
-      const style = document.createElement("style");
-      style.id = "desk-res-style";
-      style.textContent = cssText;
-      document.head.appendChild(style);
-    } catch {
-      // CSS load failed — app will still work, just unstyled
-    }
+  if (existingStyle) existingStyle.remove();
+  try {
+    const cssRes = await fetch(PAGES_BASE + "/style.css?v=" + v);
+    const cssText = await cssRes.text();
+    const style = document.createElement("style");
+    style.id = "desk-res-style";
+    style.textContent = cssText;
+    document.head.appendChild(style);
+  } catch {
+    // CSS load failed — app will still work, just unstyled
   }
 
   const params = {
