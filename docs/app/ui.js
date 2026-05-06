@@ -35,6 +35,10 @@ export function createApp({ api, user, deskLookup, storage }) {
     if (e.target === overlay) dismiss();
   });
 
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") dismiss();
+  });
+
   document.body.appendChild(overlay);
 
   const availCache = new Map();
@@ -480,6 +484,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const confirmBtn = el("button", "dra-btn dra-btn-danger", "Confirm Cancellation");
     confirmBtn.addEventListener("click", async () => {
       if (checked.size === 0) return;
+      if (!window.confirm("Cancel " + checked.size + " day" + (checked.size !== 1 ? "s" : "") + "? This cannot be undone.")) return;
       confirmBtn.disabled = true;
       confirmBtn.textContent = "Cancelling...";
       for (const day of checked) {
