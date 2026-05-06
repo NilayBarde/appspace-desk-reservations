@@ -514,16 +514,14 @@ export function createApp({ api, user, deskLookup, storage }) {
   // ---- EDIT TIMES VIEW ----
   function renderEditTimes(sorted, resourceId) {
     clear();
-    panel.appendChild(el("h2", "dra-title", "Edit Reservation Times"));
-
     const prefs = loadPrefs(storage);
 
-    // New time inputs
-    panel.appendChild(el("p", "dra-section-label", "New times"));
+    panel.appendChild(el("h2", "dra-title", "Edit Times"));
     const { row: timeRow, startInput: startTimeInput, endInput: endTimeInput } = buildTimeRow(prefs.startTime || "09:00", prefs.endTime || "17:00");
     panel.appendChild(timeRow);
-    const etHint = el("p", "dra-hint", "Times are Eastern (ET).");
+    const etHint = el("p", "dra-hint", "Eastern (ET)");
     etHint.style.fontSize = "0.72rem";
+    etHint.style.margin = "0.25rem 0 0.75rem";
     panel.appendChild(etHint);
 
     const { frag, checked } = buildDatePicker({
