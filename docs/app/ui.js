@@ -346,6 +346,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     if (sorted.length > 0) {
       const actions = el("div", "dra-actions");
       actions.style.marginTop = "0.5rem";
+      actions.style.display = "grid";
+      actions.style.gridTemplateColumns = "1fr 1fr 1fr";
       const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Cancel");
       cancelBtn.addEventListener("click", () => renderCancel(sorted, resourceId));
       actions.appendChild(cancelBtn);
