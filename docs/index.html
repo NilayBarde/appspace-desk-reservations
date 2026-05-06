@@ -67,7 +67,7 @@
   <script>
     (function() {
       var base = 'https://nilaybarde.github.io/appspace-desk-reservations/app/main.js';
-      document.getElementById('bookmarklet').href = "javascript:" + encodeURIComponent("(function(){if(!sessionStorage.jwt){alert('Log into Appspace first, then click this bookmark again.');return;}var e=document.getElementById('desk-res-app');if(e){e.remove();return;}if(window.__deskResToggle){window.__deskResToggle();return;}var s=document.createElement('script');s.id='desk-res-loader';s.type='module';s.src='" + base + "?v='+Date.now();document.head.appendChild(s);})()");
+      document.getElementById('bookmarklet').href = "javascript:" + encodeURIComponent("(function(){if(!sessionStorage.jwt){alert('Log into Appspace first, then click this bookmark again.');return;}var e=document.getElementById('desk-res-app');if(e){e.remove();return;}var o=document.getElementById('desk-res-loader');if(o)o.remove();var s=document.createElement('script');s.id='desk-res-loader';s.type='module';s.src='" + base + "?v='+Date.now();document.head.appendChild(s);})()");
     })();
   </script>
 </body>

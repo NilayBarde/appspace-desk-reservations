@@ -51,7 +51,6 @@ async function init() {
   };
 
   createApp(params);
-  window.__deskResToggle = () => createApp(params);
 }
 
 init().catch((err) => {
