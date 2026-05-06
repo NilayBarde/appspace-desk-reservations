@@ -397,6 +397,8 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     const rangeBtn = el("button", "dra-btn dra-btn-secondary", "Select Range");
     rangePicker.appendChild(rangeBtn);
+    const selectAllBtn = el("button", "dra-btn dra-btn-secondary", "Select All");
+    rangePicker.appendChild(selectAllBtn);
     panel.appendChild(rangePicker);
 
     // Count
@@ -444,6 +446,14 @@ export function createApp({ api, user, deskLookup, storage }) {
           cb.checked = true;
           checked.add(day);
         }
+      }
+      updateCount();
+    });
+
+    selectAllBtn.addEventListener("click", () => {
+      for (const { day, cb } of checkboxes) {
+        cb.checked = true;
+        checked.add(day);
       }
       updateCount();
     });
@@ -694,6 +704,13 @@ export function createApp({ api, user, deskLookup, storage }) {
     clear();
     panel.appendChild(el("h2", "dra-title", "All Reservations"));
 
+    const listWrap = el("div");
+    listWrap.style.maxHeight = "20rem";
+    listWrap.style.overflowY = "auto";
+    listWrap.style.border = "1px solid #e0e0e0";
+    listWrap.style.borderRadius = "8px";
+    listWrap.style.padding = "0.25rem 0.5rem";
+
     let currentMonth = "";
     for (const [day] of sorted) {
       const month = day.slice(0, 7);
@@ -701,14 +718,15 @@ export function createApp({ api, user, deskLookup, storage }) {
         currentMonth = month;
         const monthDate = new Date(day + "T12:00:00Z");
         const monthName = monthDate.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-        panel.appendChild(el("p", "dra-month-label", monthName));
+        listWrap.appendChild(el("p", "dra-month-label", monthName));
       }
       const item = el("div", "dra-res-item");
       const d = new Date(day + "T12:00:00Z");
       item.appendChild(el("span", "dra-res-date", day));
       item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
-      panel.appendChild(item);
+      listWrap.appendChild(item);
     }
+    panel.appendChild(listWrap);
 
     const actions = el("div", "dra-actions");
     actions.style.marginTop = "1rem";
