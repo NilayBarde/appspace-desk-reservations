@@ -357,8 +357,9 @@
   flex-wrap: wrap;
 }
 
-.dra-range-picker select {
-  padding: 0.35rem 0.5rem;
+.dra-range-picker select,
+.dra-range-picker .dra-btn {
+  padding: 0.4rem 0.75rem;
   border: 1px solid #ccc;
   border-radius: 8px;
   font: inherit;
