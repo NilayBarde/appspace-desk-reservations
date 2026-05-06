@@ -272,44 +272,57 @@ export function createApp({ api, user, deskLookup, storage }) {
       panel.insertBefore(warning, primaryRow);
     }
 
+    // Today's booking time
+    if (own.has(today)) {
+      const todayInfo = own.get(today);
+      if (todayInfo.startAt && todayInfo.endAt) {
+        const todayTime = el("p", "dra-hint", "Today: " + formatUtcToEt(todayInfo.startAt) + " – " + formatUtcToEt(todayInfo.endAt));
+        todayTime.style.margin = "0";
+        panel.insertBefore(todayTime, primaryRow);
+      }
+    }
+
     // Enable Check In / Rebook button
+    function markCheckedIn() {
+      checkinBtn.textContent = "Checked in!";
+      checkinBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
+      checkinBtn.disabled = true;
+    }
+
+    async function doCheckin() {
+      checkinBtn.disabled = true;
+      checkinBtn.textContent = "Checking in...";
+      try {
+        const todayEvents = await api.getTodayEvents();
+        const toCheckin = todayEvents.filter((e) => (e.status || "").toLowerCase() === "checkin");
+        if (toCheckin.length === 0) { markCheckedIn(); return; }
+        for (const evt of toCheckin) {
+          const rIds = evt.resourceIds && evt.resourceIds.length > 0 ? evt.resourceIds : [resourceId];
+          const { status } = await api.checkinEvent(evt.id, rIds);
+          if (status === 401 || status === 403) {
+            checkinBtn.textContent = "Session expired";
+            return;
+          }
+        }
+        markCheckedIn();
+      } catch {
+        checkinBtn.textContent = "Check-in failed";
+        checkinBtn.disabled = false;
+      }
+    }
+
     if (isWeekday) {
       if (own.has(today)) {
         const todayInfo = own.get(today);
         const todayStatus = (todayInfo.status || "").toLowerCase();
         const canCheckin = todayStatus === "checkin";
-        const alreadyCheckedIn = todayStatus === "active";
-        if (canCheckin) {
+        if (todayStatus === "active") {
+          markCheckedIn();
+        } else if (canCheckin) {
           checkinBtn.className = "dra-btn dra-btn-primary";
           checkinBtn.disabled = false;
-        }
-        if (!alreadyCheckedIn) {
-          checkinBtn.addEventListener("click", async () => {
-            if (!canCheckin) return;
-            checkinBtn.disabled = true;
-            checkinBtn.textContent = "Checking in...";
-            try {
-              const todayEvents = await api.getTodayEvents();
-              const toCheckin = todayEvents.filter((e) => (e.status || "").toLowerCase() === "checkin");
-              if (toCheckin.length === 0) {
-                checkinBtn.textContent = "Already checked in";
-                return;
-              }
-              for (const evt of toCheckin) {
-                const rIds = evt.resourceIds && evt.resourceIds.length > 0 ? evt.resourceIds : [resourceId];
-                const { status } = await api.checkinEvent(evt.id, rIds);
-                if (status === 401 || status === 403) {
-                  checkinBtn.textContent = "Session expired";
-                  return;
-                }
-              }
-              checkinBtn.textContent = "Checked in!";
-              checkinBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
-            } catch {
-              checkinBtn.textContent = "Check-in failed";
-              checkinBtn.disabled = false;
-            }
-          });
+          checkinBtn.addEventListener("click", doCheckin);
+          doCheckin();
         }
       } else {
         checkinBtn.textContent = "Rebook & Check In";
