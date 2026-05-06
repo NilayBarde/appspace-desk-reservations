@@ -354,7 +354,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       const editTimesBtn = el("button", "dra-btn dra-btn-secondary", "Edit Times");
       editTimesBtn.addEventListener("click", () => renderEditTimes(sorted, resourceId));
       actions.appendChild(editTimesBtn);
-      const viewBtn = el("button", "dra-btn dra-btn-secondary", "View All");
+      const viewBtn = el("button", "dra-btn dra-btn-secondary", "View All Bookings");
       viewBtn.addEventListener("click", () => renderReservationList(sorted));
       actions.appendChild(viewBtn);
       panel.appendChild(actions);
