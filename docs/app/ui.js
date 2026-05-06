@@ -161,22 +161,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Hours
     panel.appendChild(el("hr", "dra-divider"));
     panel.appendChild(el("p", "dra-section-label", "Booking hours"));
-    const timeRow = el("div", "dra-days");
-    timeRow.style.alignItems = "center";
-    timeRow.style.gap = "0.5rem";
-    const startTimeInput = el("input", "dra-search");
-    startTimeInput.type = "time";
-    startTimeInput.value = prefs.startTime || "09:00";
-    startTimeInput.style.width = "9rem";
-    const toLabel = el("span", "dra-hint", "to");
-    toLabel.style.margin = "0 0.25rem";
-    const endTimeInput = el("input", "dra-search");
-    endTimeInput.type = "time";
-    endTimeInput.value = prefs.endTime || "17:00";
-    endTimeInput.style.width = "9rem";
-    timeRow.appendChild(startTimeInput);
-    timeRow.appendChild(toLabel);
-    timeRow.appendChild(endTimeInput);
+    const { row: timeRow, startInput: startTimeInput, endInput: endTimeInput } = buildTimeRow(prefs.startTime || "09:00", prefs.endTime || "17:00");
     panel.appendChild(timeRow);
 
     function saveTimesIfValid() {
@@ -382,6 +367,27 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
   }
 
+  // ---- HELPERS ----
+  function buildTimeRow(startVal, endVal) {
+    const row = el("div", "dra-days");
+    row.style.alignItems = "center";
+    row.style.gap = "0.5rem";
+    const startInput = el("input", "dra-search");
+    startInput.type = "time";
+    startInput.value = startVal;
+    startInput.style.width = "9rem";
+    const toLabel = el("span", "dra-hint", "to");
+    toLabel.style.margin = "0 0.25rem";
+    const endInput = el("input", "dra-search");
+    endInput.type = "time";
+    endInput.value = endVal;
+    endInput.style.width = "9rem";
+    row.appendChild(startInput);
+    row.appendChild(toLabel);
+    row.appendChild(endInput);
+    return { row, startInput, endInput };
+  }
+
   // ---- DATE PICKER HELPER ----
   function buildDatePicker({ sorted, countLabel, renderRow }) {
     const checked = new Set();
@@ -511,22 +517,7 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     // New time inputs
     panel.appendChild(el("p", "dra-section-label", "New times"));
-    const timeRow = el("div", "dra-days");
-    timeRow.style.alignItems = "center";
-    timeRow.style.gap = "0.5rem";
-    const startTimeInput = el("input", "dra-search");
-    startTimeInput.type = "time";
-    startTimeInput.value = prefs.startTime || "09:00";
-    startTimeInput.style.width = "9rem";
-    const toLabel = el("span", "dra-hint", "to");
-    toLabel.style.margin = "0 0.25rem";
-    const endTimeInput = el("input", "dra-search");
-    endTimeInput.type = "time";
-    endTimeInput.value = prefs.endTime || "17:00";
-    endTimeInput.style.width = "9rem";
-    timeRow.appendChild(startTimeInput);
-    timeRow.appendChild(toLabel);
-    timeRow.appendChild(endTimeInput);
+    const { row: timeRow, startInput: startTimeInput, endInput: endTimeInput } = buildTimeRow(prefs.startTime || "09:00", prefs.endTime || "17:00");
     panel.appendChild(timeRow);
     panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET). Each date is converted to UTC accounting for DST."));
 
