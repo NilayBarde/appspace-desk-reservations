@@ -186,23 +186,28 @@ export function createApp({ api, user, deskLookup, storage }) {
     startTimeInput.addEventListener("change", saveTimesIfValid);
     endTimeInput.addEventListener("change", saveTimesIfValid);
 
-    // Title
+    // Title (inline, compact)
     panel.appendChild(el("hr", "dra-divider"));
-    panel.appendChild(el("p", "dra-section-label", "Reservation name (optional)"));
+    const titleRow = el("div", "dra-days");
+    titleRow.style.alignItems = "center";
+    titleRow.style.gap = "0.5rem";
+    const titleLabel = el("span", "dra-section-label", "Title");
+    titleLabel.style.margin = "0";
+    titleRow.appendChild(titleLabel);
     const titleInput = el("input", "dra-search");
     titleInput.type = "text";
     titleInput.placeholder = "Workspace Reservation";
     titleInput.value = prefs.title || "";
-    panel.appendChild(titleInput);
-    panel.appendChild(el("p", "dra-hint", "Shows in Appspace as reservation title. Leave blank for default."));
+    titleInput.style.flex = "1";
+    titleRow.appendChild(titleInput);
+    panel.appendChild(titleRow);
 
     titleInput.addEventListener("blur", () => {
       savePrefs(storage, { title: titleInput.value.trim() });
     });
 
     // No-show warning
-    const warn = el("div", "dra-warning", "Only select days you'll actually be in. Appspace tracks no-shows.");
-    panel.appendChild(warn);
+    panel.appendChild(el("p", "dra-hint", "Appspace tracks no-shows — only book days you'll be in."));
 
     // == Section B & C: Status + Actions (only if desk configured) ==
     const resourceId = selectedDesk ? deskLookup[selectedDesk.name] : null;
