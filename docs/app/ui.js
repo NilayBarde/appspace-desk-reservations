@@ -402,6 +402,11 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Individual checkboxes
     panel.appendChild(el("p", "dra-section-label", "Or select individual days"));
     const checkList = el("div");
+    checkList.style.maxHeight = "15rem";
+    checkList.style.overflowY = "auto";
+    checkList.style.border = "1px solid #e0e0e0";
+    checkList.style.borderRadius = "8px";
+    checkList.style.padding = "0.25rem 0.5rem";
     const checkboxes = [];
     for (const [day, info] of sorted) {
       const item = el("div", "dra-res-item");
@@ -534,6 +539,11 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Individual checkboxes with current times
     panel.appendChild(el("p", "dra-section-label", "Or select individual days"));
     const checkList = el("div");
+    checkList.style.maxHeight = "15rem";
+    checkList.style.overflowY = "auto";
+    checkList.style.border = "1px solid #e0e0e0";
+    checkList.style.borderRadius = "8px";
+    checkList.style.padding = "0.25rem 0.5rem";
     const checkboxes = [];
     for (const [day, info] of sorted) {
       const item = el("div", "dra-res-item");
