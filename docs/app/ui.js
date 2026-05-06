@@ -158,6 +158,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(daysRow);
     const noShowHint = el("p", "dra-hint", "Appspace tracks no-shows — only book days you'll be in.");
     noShowHint.style.fontSize = "0.72rem";
+    noShowHint.style.marginBottom = "0";
     panel.appendChild(noShowHint);
 
     // Hours
