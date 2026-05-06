@@ -277,7 +277,8 @@ export function createApp({ api, user, deskLookup, storage }) {
       const todayInfo = own.get(today);
       if (todayInfo.startAt && todayInfo.endAt) {
         const todayTime = el("p", "dra-hint", "Today: " + formatUtcToEt(todayInfo.startAt) + " – " + formatUtcToEt(todayInfo.endAt));
-        todayTime.style.margin = "0";
+        todayTime.style.fontSize = "0.72rem";
+        todayTime.style.margin = "0 0 0.5rem";
         panel.insertBefore(todayTime, primaryRow);
       }
     }
