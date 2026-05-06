@@ -2,7 +2,7 @@ import { loadPrefs, savePrefs, saveLastBookedDate, parseTime } from "./preferenc
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
-import { etToUtc, DOW_NAMES } from "./time.js";
+import { etToUtc, formatUtcToEt, DOW_NAMES } from "./time.js";
 
 const MAX_BOOKING_DAYS = 90;
 
@@ -53,16 +53,14 @@ export function createApp({ api, user, deskLookup, storage }) {
   }
 
 
-  // ---- SETUP VIEW ----
-  function renderSetup(existingPrefs) {
+  // ---- MAIN VIEW (unified settings + status + actions) ----
+  async function renderMain() {
     clear();
-    const prefs = existingPrefs || loadPrefs(storage);
+    const prefs = loadPrefs(storage);
     let selectedDesk = prefs.desk ? { name: prefs.desk, resourceId: deskLookup[prefs.desk] } : null;
     const selectedDays = new Set(prefs.days);
 
-    panel.appendChild(el("h2", "dra-title", selectedDesk ? "Settings" : "Set Up Desk Booking"));
-
-    // Desk search
+    // == Section A: Settings ==
     panel.appendChild(el("p", "dra-section-label", "Your desk"));
     const searchWrap = el("div", "dra-search-wrap");
     const searchInput = el("input", "dra-search");
@@ -75,10 +73,6 @@ export function createApp({ api, user, deskLookup, storage }) {
     const resultsList = el("ul", "dra-results");
     resultsList.style.display = "none";
     panel.appendChild(resultsList);
-
-    const selectedLabel = el("p", "dra-subtitle");
-    if (selectedDesk) selectedLabel.textContent = "Selected: " + selectedDesk.name;
-    panel.appendChild(selectedLabel);
 
     function renderResults(results) {
       while (resultsList.firstChild) resultsList.removeChild(resultsList.firstChild);
@@ -102,8 +96,9 @@ export function createApp({ api, user, deskLookup, storage }) {
         li.addEventListener("click", () => {
           selectedDesk = { name: r.name, resourceId: r.resourceId };
           searchInput.value = r.name;
-          selectedLabel.textContent = "Selected: " + r.name;
           resultsList.style.display = "none";
+          savePrefs(storage, { desk: r.name });
+          renderMain();
         });
         resultsList.appendChild(li);
       }
@@ -141,7 +136,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       }, 300);
     });
 
-    // Day selection
+    // Days
     panel.appendChild(el("hr", "dra-divider"));
     panel.appendChild(el("p", "dra-section-label", "Days in office"));
     const daysRow = el("div", "dra-days");
@@ -156,12 +151,43 @@ export function createApp({ api, user, deskLookup, storage }) {
           selectedDays.add(d);
           btn.className = "dra-day-btn dra-selected";
         }
+        savePrefs(storage, { days: [...selectedDays] });
       });
       daysRow.appendChild(btn);
     }
     panel.appendChild(daysRow);
 
-    // Reservation name
+    // Hours
+    panel.appendChild(el("hr", "dra-divider"));
+    panel.appendChild(el("p", "dra-section-label", "Booking hours"));
+    const timeRow = el("div", "dra-days");
+    timeRow.style.alignItems = "center";
+    timeRow.style.gap = "0.5rem";
+    const startTimeInput = el("input", "dra-search");
+    startTimeInput.type = "time";
+    startTimeInput.value = prefs.startTime || "09:00";
+    startTimeInput.style.width = "9rem";
+    const toLabel = el("span", "dra-hint", "to");
+    toLabel.style.margin = "0 0.25rem";
+    const endTimeInput = el("input", "dra-search");
+    endTimeInput.type = "time";
+    endTimeInput.value = prefs.endTime || "17:00";
+    endTimeInput.style.width = "9rem";
+    timeRow.appendChild(startTimeInput);
+    timeRow.appendChild(toLabel);
+    timeRow.appendChild(endTimeInput);
+    panel.appendChild(timeRow);
+    panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET) and adjust automatically for daylight saving."));
+
+    function saveTimesIfValid() {
+      const s = startTimeInput.value || "09:00";
+      const e = endTimeInput.value || "17:00";
+      if (s < e) savePrefs(storage, { startTime: s, endTime: e });
+    }
+    startTimeInput.addEventListener("change", saveTimesIfValid);
+    endTimeInput.addEventListener("change", saveTimesIfValid);
+
+    // Title
     panel.appendChild(el("hr", "dra-divider"));
     panel.appendChild(el("p", "dra-section-label", "Reservation name (optional)"));
     const titleInput = el("input", "dra-search");
@@ -171,61 +197,22 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(titleInput);
     panel.appendChild(el("p", "dra-hint", "Shows in Appspace as reservation title. Leave blank for default."));
 
-    // Booking hours
-    panel.appendChild(el("hr", "dra-divider"));
-    panel.appendChild(el("p", "dra-section-label", "Booking hours"));
-    const timeRow = el("div", "dra-days");
-    timeRow.style.alignItems = "center";
-    timeRow.style.gap = "0.5rem";
-    const startTimeInput = el("input", "dra-search");
-    startTimeInput.type = "time";
-    startTimeInput.value = prefs.startTime || "09:00";
-    startTimeInput.style.width = "7rem";
-    const toLabel = el("span", "dra-hint", "to");
-    toLabel.style.margin = "0 0.25rem";
-    const endTimeInput = el("input", "dra-search");
-    endTimeInput.type = "time";
-    endTimeInput.value = prefs.endTime || "17:00";
-    endTimeInput.style.width = "7rem";
-    timeRow.appendChild(startTimeInput);
-    timeRow.appendChild(toLabel);
-    timeRow.appendChild(endTimeInput);
-    panel.appendChild(timeRow);
-    panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET) and adjust automatically for daylight saving."));
+    titleInput.addEventListener("blur", () => {
+      savePrefs(storage, { title: titleInput.value.trim() });
+    });
 
     // No-show warning
     const warn = el("div", "dra-warning", "Only select days you'll actually be in. Appspace tracks no-shows.");
     panel.appendChild(warn);
 
-    // Save button
-    const saveBtn = el("button", "dra-btn dra-btn-primary", "Save & Continue");
-    saveBtn.style.marginTop = "1rem";
-    saveBtn.addEventListener("click", () => {
-      if (!selectedDesk) { window.alert("Please select a desk."); return; }
-      if (selectedDays.size === 0) { window.alert("Please select at least one day."); return; }
-      const startTime = startTimeInput.value || "09:00";
-      const endTime = endTimeInput.value || "17:00";
-      if (startTime >= endTime) { window.alert("Start time must be before end time."); return; }
-      savePrefs(storage, { desk: selectedDesk.name, days: [...selectedDays], title: titleInput.value.trim(), startTime, endTime });
-      renderDashboard();
-    });
-    panel.appendChild(saveBtn);
-  }
-
-  // ---- DASHBOARD VIEW ----
-  async function renderDashboard() {
-    clear();
-    const prefs = loadPrefs(storage);
-    const resourceId = deskLookup[prefs.desk];
-
+    // == Section B & C: Status + Actions (only if desk configured) ==
+    const resourceId = selectedDesk ? deskLookup[selectedDesk.name] : null;
     if (!resourceId) {
-      panel.appendChild(el("div", "dra-error", "Desk '" + prefs.desk + "' wasn't found. Check your desk name in Settings."));
-      const fixBtn = el("button", "dra-btn dra-btn-primary", "Open Settings");
-      fixBtn.addEventListener("click", () => renderSetup());
-      panel.appendChild(fixBtn);
-        return;
+      panel.appendChild(el("p", "dra-hint", "Select a desk to get started."));
+      return;
     }
 
+    panel.appendChild(el("hr", "dra-divider"));
     panel.appendChild(el("p", "dra-subtitle", "Loading your bookings..."));
 
     const today = new Date().toISOString().slice(0, 10);
@@ -235,31 +222,20 @@ export function createApp({ api, user, deskLookup, storage }) {
     try {
       events = await api.getResourceEvents(resourceId, today, endDate);
     } catch {
-      clear();
       panel.appendChild(el("div", "dra-error", "Failed to load bookings. Your session may have expired."));
-        return;
+      return;
     }
 
     const { own, others } = parseExistingBookings(events, user.id);
-    clear();
+
+    // Remove the loading message
+    const loadingMsg = panel.querySelector(".dra-subtitle:last-of-type");
+    if (loadingMsg && loadingMsg.textContent === "Loading your bookings...") loadingMsg.remove();
 
     const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
-    // Header
-    const header = el("div", "dra-header");
-    const headerInfo = el("div");
-    headerInfo.appendChild(el("h2", "dra-title", prefs.desk));
-    const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
-    const todayDayName = DOW_NAMES[todayDow] || "";
-    headerInfo.appendChild(el("p", "dra-subtitle", todayDayName + " · " + user.name));
-    header.appendChild(headerInfo);
-    const gear = el("button", "dra-gear", "⚙");
-    gear.title = "Settings";
-    gear.addEventListener("click", () => renderSetup());
-    header.appendChild(gear);
-    panel.appendChild(header);
-
     // Today section
+    const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
     const isWeekday = todayDow >= 1 && todayDow <= 5;
     if (own.has(today)) {
       const todayInfo = own.get(today);
@@ -367,12 +343,14 @@ export function createApp({ api, user, deskLookup, storage }) {
       const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Cancel Days");
       cancelBtn.addEventListener("click", () => renderCancel(sorted, resourceId));
       actions.appendChild(cancelBtn);
+      const editTimesBtn = el("button", "dra-btn dra-btn-secondary", "Edit Times");
+      editTimesBtn.addEventListener("click", () => renderEditTimes(sorted, resourceId));
+      actions.appendChild(editTimesBtn);
       const viewBtn = el("button", "dra-btn dra-btn-secondary", "View All");
       viewBtn.addEventListener("click", () => renderReservationList(sorted));
       actions.appendChild(viewBtn);
     }
     panel.appendChild(actions);
-
   }
 
   // ---- CANCEL VIEW ----
@@ -471,15 +449,216 @@ export function createApp({ api, user, deskLookup, storage }) {
           await api.deleteReservation(info[1].reservationId);
         }
       }
-      renderDashboard();
+      renderMain();
     });
     actions.appendChild(confirmBtn);
 
     const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
-    backBtn.addEventListener("click", () => renderDashboard());
+    backBtn.addEventListener("click", () => renderMain());
     actions.appendChild(backBtn);
     panel.appendChild(actions);
 
+  }
+
+  // ---- EDIT TIMES VIEW ----
+  function renderEditTimes(sorted, resourceId) {
+    clear();
+    panel.appendChild(el("h2", "dra-title", "Edit Reservation Times"));
+
+    const prefs = loadPrefs(storage);
+
+    // New time inputs
+    panel.appendChild(el("p", "dra-section-label", "New times"));
+    const timeRow = el("div", "dra-days");
+    timeRow.style.alignItems = "center";
+    timeRow.style.gap = "0.5rem";
+    const startTimeInput = el("input", "dra-search");
+    startTimeInput.type = "time";
+    startTimeInput.value = prefs.startTime || "09:00";
+    startTimeInput.style.width = "9rem";
+    const toLabel = el("span", "dra-hint", "to");
+    toLabel.style.margin = "0 0.25rem";
+    const endTimeInput = el("input", "dra-search");
+    endTimeInput.type = "time";
+    endTimeInput.value = prefs.endTime || "17:00";
+    endTimeInput.style.width = "9rem";
+    timeRow.appendChild(startTimeInput);
+    timeRow.appendChild(toLabel);
+    timeRow.appendChild(endTimeInput);
+    panel.appendChild(timeRow);
+    panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET). Each date is converted to UTC accounting for DST."));
+
+    // Range picker
+    const checked = new Set();
+
+    panel.appendChild(el("p", "dra-section-label", "Select date range"));
+    const rangePicker = el("div", "dra-range-picker");
+    const fromSelect = document.createElement("select");
+    const toSelect = document.createElement("select");
+    const emptyOpt = document.createElement("option");
+    emptyOpt.value = "";
+    emptyOpt.textContent = "From...";
+    fromSelect.appendChild(emptyOpt);
+    const emptyOpt2 = document.createElement("option");
+    emptyOpt2.value = "";
+    emptyOpt2.textContent = "To...";
+    toSelect.appendChild(emptyOpt2);
+    for (const [day] of sorted) {
+      const o1 = document.createElement("option");
+      o1.value = day;
+      o1.textContent = day;
+      fromSelect.appendChild(o1);
+      const o2 = document.createElement("option");
+      o2.value = day;
+      o2.textContent = day;
+      toSelect.appendChild(o2);
+    }
+    rangePicker.appendChild(fromSelect);
+    rangePicker.appendChild(el("span", null, "to"));
+    rangePicker.appendChild(toSelect);
+
+    const rangeBtn = el("button", "dra-btn dra-btn-secondary", "Select Range");
+    rangePicker.appendChild(rangeBtn);
+    panel.appendChild(rangePicker);
+
+    // Count
+    const countEl = el("p", "dra-cancel-count", "Updating 0 days.");
+    panel.appendChild(countEl);
+
+    function updateCount() {
+      countEl.textContent = "Updating " + checked.size + " day" + (checked.size !== 1 ? "s" : "") + ".";
+    }
+
+    // Individual checkboxes with current times
+    panel.appendChild(el("p", "dra-section-label", "Or select individual days"));
+    const checkList = el("div");
+    const checkboxes = [];
+    for (const [day, info] of sorted) {
+      const item = el("div", "dra-res-item");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "dra-cancel-check";
+      cb.addEventListener("change", () => {
+        if (cb.checked) checked.add(day);
+        else checked.delete(day);
+        updateCount();
+      });
+      checkboxes.push({ day, cb });
+      item.appendChild(cb);
+      item.appendChild(el("span", "dra-res-date", day));
+      const d = new Date(day + "T12:00:00Z");
+      item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
+      const currentTimes = formatUtcToEt(info.startAt) + " – " + formatUtcToEt(info.endAt);
+      item.appendChild(el("span", "dra-res-status", currentTimes));
+      checkList.appendChild(item);
+    }
+    panel.appendChild(checkList);
+
+    rangeBtn.addEventListener("click", () => {
+      const from = fromSelect.value;
+      const to = toSelect.value;
+      if (!from || !to) return;
+      for (const { day, cb } of checkboxes) {
+        if (day >= from && day <= to) {
+          cb.checked = true;
+          checked.add(day);
+        }
+      }
+      updateCount();
+    });
+
+    // Actions
+    const actions = el("div", "dra-actions");
+    actions.style.marginTop = "1rem";
+    const applyBtn = el("button", "dra-btn dra-btn-primary", "Apply Changes");
+    applyBtn.addEventListener("click", async () => {
+      if (checked.size === 0) return;
+      const newStart = startTimeInput.value || "09:00";
+      const newEnd = endTimeInput.value || "17:00";
+      if (newStart >= newEnd) {
+        window.alert("Start time must be before end time.");
+        return;
+      }
+
+      const { hour: startHour, minute: startMin } = parseTime(newStart);
+      const { hour: endHour, minute: endMin } = parseTime(newEnd);
+
+      applyBtn.disabled = true;
+      applyBtn.textContent = "Updating...";
+
+      const progressWrap = el("div", "dra-progress-wrap");
+      const bar = el("div", "dra-progress-bar");
+      const fill = el("div", "dra-progress-fill");
+      fill.style.width = "0%";
+      bar.appendChild(fill);
+      progressWrap.appendChild(bar);
+      const progressText = el("p", "dra-progress-text", "0 / " + checked.size);
+      progressWrap.appendChild(progressText);
+      panel.appendChild(progressWrap);
+
+      const log = el("div", "dra-log");
+      panel.appendChild(log);
+
+      let completed = 0;
+      let failures = 0;
+
+      for (const day of checked) {
+        const info = sorted.find(([d]) => d === day);
+        if (!info || !info[1].eventId) {
+          completed++;
+          failures++;
+          const entry = el("div", "dra-log-entry dra-log-fail");
+          entry.textContent = day + " SKIPPED: no event ID";
+          log.appendChild(entry);
+          continue;
+        }
+
+        const startTime = etToUtc(day, startHour, startMin);
+        const endTime = etToUtc(day, endHour, endMin);
+
+        try {
+          const { status } = await api.patchEventDate(info[1].eventId, day, startTime, endTime);
+          if (status === 401 || status === 403) {
+            panel.appendChild(el("div", "dra-error", "Session expired. Refresh the page and try again."));
+            return;
+          }
+          completed++;
+          const pct = Math.round((completed / checked.size) * 100);
+          fill.style.width = pct + "%";
+          progressText.textContent = completed + " / " + checked.size;
+
+          if (status >= 200 && status < 300) {
+            const entry = el("div", "dra-log-entry dra-log-ok");
+            entry.textContent = day + " updated";
+            log.appendChild(entry);
+          } else {
+            failures++;
+            const entry = el("div", "dra-log-entry dra-log-fail");
+            entry.textContent = day + " FAILED: HTTP " + status;
+            log.appendChild(entry);
+          }
+        } catch (err) {
+          completed++;
+          failures++;
+          const entry = el("div", "dra-log-entry dra-log-fail");
+          entry.textContent = day + " FAILED: " + (err.message || "network error");
+          log.appendChild(entry);
+          const pct = Math.round((completed / checked.size) * 100);
+          fill.style.width = pct + "%";
+          progressText.textContent = completed + " / " + checked.size;
+        }
+        log.scrollTop = log.scrollHeight;
+      }
+
+      progressText.textContent = "Done! " + (completed - failures) + " updated" + (failures > 0 ? ", " + failures + " failed" : "") + ".";
+      applyBtn.textContent = "Done";
+    });
+    actions.appendChild(applyBtn);
+
+    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
+    backBtn.addEventListener("click", () => renderMain());
+    actions.appendChild(backBtn);
+    panel.appendChild(actions);
   }
 
   // ---- RESERVATION LIST VIEW ----
@@ -506,7 +685,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const actions = el("div", "dra-actions");
     actions.style.marginTop = "1rem";
     const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
-    backBtn.addEventListener("click", () => renderDashboard());
+    backBtn.addEventListener("click", () => renderMain());
     actions.appendChild(backBtn);
     panel.appendChild(actions);
   }
@@ -526,7 +705,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       const actions = el("div", "dra-actions");
       actions.style.marginTop = "1rem";
       const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
-      backBtn.addEventListener("click", () => renderDashboard());
+      backBtn.addEventListener("click", () => renderMain());
       actions.appendChild(backBtn);
       panel.appendChild(actions);
       return;
@@ -611,7 +790,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     actions.appendChild(bookBtn);
 
     const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
-    backBtn.addEventListener("click", () => renderDashboard());
+    backBtn.addEventListener("click", () => renderMain());
     actions.appendChild(backBtn);
     panel.appendChild(actions);
   }
@@ -694,9 +873,9 @@ export function createApp({ api, user, deskLookup, storage }) {
         panel.appendChild(el("div", "dra-error", "Booking interrupted: " + err.message + ". Refresh the page and try again — progress is saved."));
       }
       if (lastBooked) saveLastBookedDate(storage, lastBooked);
-      const backBtn = el("button", "dra-btn dra-btn-primary", "Back to Dashboard");
+      const backBtn = el("button", "dra-btn dra-btn-primary", "Back");
       backBtn.style.marginTop = "1rem";
-      backBtn.addEventListener("click", () => renderDashboard());
+      backBtn.addEventListener("click", () => renderMain());
       panel.appendChild(backBtn);
         return;
     }
@@ -710,17 +889,12 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     progressText.textContent = "Done! " + completed + " days processed.";
 
-    const doneBtn = el("button", "dra-btn dra-btn-primary", "Back to Dashboard");
+    const doneBtn = el("button", "dra-btn dra-btn-primary", "Back");
     doneBtn.style.marginTop = "1rem";
-    doneBtn.addEventListener("click", () => renderDashboard());
+    doneBtn.addEventListener("click", () => renderMain());
     panel.appendChild(doneBtn);
   }
 
   // Start
-  const prefs = loadPrefs(storage);
-  if (prefs.desk && prefs.days.length > 0) {
-    renderDashboard();
-  } else {
-    renderSetup();
-  }
+  renderMain();
 }
