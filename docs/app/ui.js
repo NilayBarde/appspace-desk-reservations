@@ -258,10 +258,18 @@ export function createApp({ api, user, deskLookup, storage }) {
       const lastDate = sorted[sorted.length - 1][0];
       statusEl.textContent = sorted.length + " days booked through " + lastDate + " ▸";
       statusEl.style.cursor = "pointer";
+      const detailWrap = el("div");
+      detailWrap.style.position = "relative";
       const detailList = el("div", "dra-scroll-list");
-      detailList.style.maxHeight = "12rem";
+      detailList.style.maxHeight = "14rem";
       detailList.style.display = "none";
-      detailList.style.margin = "0.5rem 0 1rem";
+      detailList.style.position = "absolute";
+      detailList.style.left = "0";
+      detailList.style.right = "0";
+      detailList.style.zIndex = "10";
+      detailList.style.background = "#fff";
+      detailList.style.marginTop = "0.25rem";
+      detailList.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
       let currentMonth = "";
       for (const [day] of sorted) {
         const month = day.slice(0, 7);
@@ -277,7 +285,8 @@ export function createApp({ api, user, deskLookup, storage }) {
         item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
         detailList.appendChild(item);
       }
-      statusEl.after(detailList);
+      detailWrap.appendChild(detailList);
+      statusEl.after(detailWrap);
       statusEl.addEventListener("click", () => {
         const open = detailList.style.display !== "none";
         detailList.style.display = open ? "none" : "";
