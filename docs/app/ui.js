@@ -339,12 +339,14 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
 
     // Actions
-    const actions = el("div", "dra-actions");
     const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
+    bookBtn.style.width = "100%";
     bookBtn.addEventListener("click", () => renderBookSetup(resourceId, own));
-    actions.appendChild(bookBtn);
+    panel.appendChild(bookBtn);
     if (sorted.length > 0) {
-      const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Cancel Days");
+      const actions = el("div", "dra-actions");
+      actions.style.marginTop = "0.5rem";
+      const cancelBtn = el("button", "dra-btn dra-btn-secondary", "Cancel");
       cancelBtn.addEventListener("click", () => renderCancel(sorted, resourceId));
       actions.appendChild(cancelBtn);
       const editTimesBtn = el("button", "dra-btn dra-btn-secondary", "Edit Times");
@@ -353,8 +355,8 @@ export function createApp({ api, user, deskLookup, storage }) {
       const viewBtn = el("button", "dra-btn dra-btn-secondary", "View All");
       viewBtn.addEventListener("click", () => renderReservationList(sorted));
       actions.appendChild(viewBtn);
+      panel.appendChild(actions);
     }
-    panel.appendChild(actions);
   }
 
   // ---- CANCEL VIEW ----
