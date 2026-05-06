@@ -239,56 +239,47 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Today section
     const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
     const isWeekday = todayDow >= 1 && todayDow <= 5;
+    let todayBtn = null;
     if (own.has(today)) {
       const todayInfo = own.get(today);
       const todayStatus = (todayInfo.status || "").toLowerCase();
-      const todayWrap = el("div", "dra-today");
-      if (todayStatus === "active") {
-        const checkinBtn = el("button", "dra-btn dra-btn-primary dra-btn-disabled", "Checked In");
-        checkinBtn.disabled = true;
-        todayWrap.appendChild(checkinBtn);
-      } else {
-        const canCheckin = todayStatus === "checkin";
-        const checkinBtn = el("button", "dra-btn dra-btn-primary" + (canCheckin ? "" : " dra-btn-disabled"), "Check In");
-        if (!canCheckin) checkinBtn.disabled = true;
-        checkinBtn.addEventListener("click", async () => {
+      const canCheckin = todayStatus === "checkin";
+      const alreadyCheckedIn = todayStatus === "active";
+      todayBtn = el("button", "dra-btn dra-btn-primary" + (canCheckin ? "" : " dra-btn-disabled"), "Check In");
+      if (!canCheckin) todayBtn.disabled = true;
+      if (!alreadyCheckedIn) {
+        todayBtn.addEventListener("click", async () => {
           if (!canCheckin) return;
-          checkinBtn.disabled = true;
-          checkinBtn.textContent = "Checking in...";
+          todayBtn.disabled = true;
+          todayBtn.textContent = "Checking in...";
           try {
             const todayEvents = await api.getTodayEvents();
             const toCheckin = todayEvents.filter((e) => (e.status || "").toLowerCase() === "checkin");
             if (toCheckin.length === 0) {
-              checkinBtn.textContent = "Already checked in";
+              todayBtn.textContent = "Already checked in";
               return;
             }
             for (const evt of toCheckin) {
               const rIds = evt.resourceIds && evt.resourceIds.length > 0 ? evt.resourceIds : [resourceId];
               const { status } = await api.checkinEvent(evt.id, rIds);
               if (status === 401 || status === 403) {
-                checkinBtn.textContent = "Session expired";
+                todayBtn.textContent = "Session expired";
                 return;
               }
             }
-            checkinBtn.textContent = "Checked in!";
-            checkinBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
+            todayBtn.textContent = "Checked in!";
+            todayBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
           } catch {
-            checkinBtn.textContent = "Check-in failed";
-            checkinBtn.disabled = false;
+            todayBtn.textContent = "Check-in failed";
+            todayBtn.disabled = false;
           }
         });
-        todayWrap.appendChild(checkinBtn);
-        if (!canCheckin) {
-          todayWrap.appendChild(el("span", "dra-hint", " Window not open yet"));
-        }
       }
-      panel.appendChild(todayWrap);
     } else if (isWeekday) {
-      const todayWrap = el("div", "dra-today");
-      const rebookBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In");
-      rebookBtn.addEventListener("click", async () => {
-        rebookBtn.disabled = true;
-        rebookBtn.textContent = "Rebooking...";
+      todayBtn = el("button", "dra-btn dra-btn-primary", "Rebook & Check In");
+      todayBtn.addEventListener("click", async () => {
+        todayBtn.disabled = true;
+        todayBtn.textContent = "Rebooking...";
         try {
           const rebookPrefs = loadPrefs(storage);
           const { hour: rSH, minute: rSM } = parseTime(rebookPrefs.startTime);
@@ -298,30 +289,28 @@ export function createApp({ api, user, deskLookup, storage }) {
           const title = rebookPrefs.title || undefined;
           const { status, body } = await api.createReservation(resourceId, today, startTime, endTime, user, title);
           if (status === 401 || status === 403) {
-            rebookBtn.textContent = "Session expired";
+            todayBtn.textContent = "Session expired";
             return;
           }
           if (!body.events || !body.events[0]) {
-            rebookBtn.textContent = body.message || "Rebook failed";
-            rebookBtn.disabled = false;
+            todayBtn.textContent = body.message || "Rebook failed";
+            todayBtn.disabled = false;
             return;
           }
-          rebookBtn.textContent = "Checking in...";
+          todayBtn.textContent = "Checking in...";
           const eventId = body.events[0].id;
           const { status: ciStatus } = await api.checkinEvent(eventId, [resourceId]);
           if (ciStatus === 401 || ciStatus === 403) {
-            rebookBtn.textContent = "Rebooked (check-in failed)";
+            todayBtn.textContent = "Rebooked (check-in failed)";
             return;
           }
-          rebookBtn.textContent = "Rebooked & checked in!";
-          rebookBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
+          todayBtn.textContent = "Rebooked & checked in!";
+          todayBtn.className = "dra-btn dra-btn-primary dra-btn-disabled";
         } catch {
-          rebookBtn.textContent = "Rebook failed";
-          rebookBtn.disabled = false;
+          todayBtn.textContent = "Rebook failed";
+          todayBtn.disabled = false;
         }
       });
-      todayWrap.appendChild(rebookBtn);
-      panel.appendChild(todayWrap);
     }
 
     // Quick stats
@@ -337,10 +326,18 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
 
     // Actions
+    const primaryRow = el("div", "dra-actions");
+    primaryRow.style.display = "grid";
+    primaryRow.style.gridTemplateColumns = todayBtn ? "1fr 1fr" : "1fr";
+    if (todayBtn) {
+      todayBtn.style.width = "100%";
+      primaryRow.appendChild(todayBtn);
+    }
     const bookBtn = el("button", "dra-btn dra-btn-primary", "Book New Days");
     bookBtn.style.width = "100%";
     bookBtn.addEventListener("click", () => renderBookSetup(resourceId, own));
-    panel.appendChild(bookBtn);
+    primaryRow.appendChild(bookBtn);
+    panel.appendChild(primaryRow);
     if (sorted.length > 0) {
       const actions = el("div", "dra-actions");
       actions.style.marginTop = "0.5rem";
@@ -359,15 +356,12 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
   }
 
-  // ---- CANCEL VIEW ----
-  function renderCancel(sorted, resourceId) {
-    clear();
-    panel.appendChild(el("h2", "dra-title", "Cancel Reservations"));
-
+  // ---- DATE PICKER HELPER ----
+  function buildDatePicker({ sorted, countLabel, renderRow }) {
     const checked = new Set();
+    const frag = document.createDocumentFragment();
 
-    // Range picker
-    panel.appendChild(el("p", "dra-section-label", "Select date range"));
+    frag.appendChild(el("p", "dra-section-label", "Select date range"));
     const rangePicker = el("div", "dra-range-picker");
     const fromSelect = document.createElement("select");
     const toSelect = document.createElement("select");
@@ -392,23 +386,19 @@ export function createApp({ api, user, deskLookup, storage }) {
     rangePicker.appendChild(fromSelect);
     rangePicker.appendChild(el("span", null, "to"));
     rangePicker.appendChild(toSelect);
-
     const rangeBtn = el("button", "dra-btn dra-btn-secondary", "Select Range");
     rangePicker.appendChild(rangeBtn);
     const selectAllBtn = el("button", "dra-btn dra-btn-secondary", "Select All");
     rangePicker.appendChild(selectAllBtn);
-    panel.appendChild(rangePicker);
+    frag.appendChild(rangePicker);
 
-    // Count
-    const countEl = el("p", "dra-cancel-count", "Cancelling 0 days.");
-    panel.appendChild(countEl);
-
+    const countEl = el("p", "dra-cancel-count", countLabel + " 0 days.");
+    frag.appendChild(countEl);
     function updateCount() {
-      countEl.textContent = "Cancelling " + checked.size + " day" + (checked.size !== 1 ? "s" : "") + ".";
+      countEl.textContent = countLabel + " " + checked.size + " day" + (checked.size !== 1 ? "s" : "") + ".";
     }
 
-    // Individual checkboxes
-    panel.appendChild(el("p", "dra-section-label", "Or select individual days"));
+    frag.appendChild(el("p", "dra-section-label", "Or select individual days"));
     const checkList = el("div");
     checkList.style.maxHeight = "15rem";
     checkList.style.overflowY = "auto";
@@ -431,30 +421,35 @@ export function createApp({ api, user, deskLookup, storage }) {
       item.appendChild(el("span", "dra-res-date", day));
       const d = new Date(day + "T12:00:00Z");
       item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
+      if (renderRow) renderRow(item, info);
       checkList.appendChild(item);
     }
-    panel.appendChild(checkList);
+    frag.appendChild(checkList);
 
     rangeBtn.addEventListener("click", () => {
       const from = fromSelect.value;
       const to = toSelect.value;
       if (!from || !to) return;
       for (const { day, cb } of checkboxes) {
-        if (day >= from && day <= to) {
-          cb.checked = true;
-          checked.add(day);
-        }
+        if (day >= from && day <= to) { cb.checked = true; checked.add(day); }
       }
+      updateCount();
+    });
+    selectAllBtn.addEventListener("click", () => {
+      for (const { day, cb } of checkboxes) { cb.checked = true; checked.add(day); }
       updateCount();
     });
 
-    selectAllBtn.addEventListener("click", () => {
-      for (const { day, cb } of checkboxes) {
-        cb.checked = true;
-        checked.add(day);
-      }
-      updateCount();
-    });
+    return { frag, checked };
+  }
+
+  // ---- CANCEL VIEW ----
+  function renderCancel(sorted, resourceId) {
+    clear();
+    panel.appendChild(el("h2", "dra-title", "Cancel Reservations"));
+
+    const { frag, checked } = buildDatePicker({ sorted, countLabel: "Cancelling" });
+    panel.appendChild(frag);
 
     // Actions
     const actions = el("div", "dra-actions");
@@ -509,99 +504,15 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(timeRow);
     panel.appendChild(el("p", "dra-hint", "Times are Eastern (ET). Each date is converted to UTC accounting for DST."));
 
-    // Range picker
-    const checked = new Set();
-
-    panel.appendChild(el("p", "dra-section-label", "Select date range"));
-    const rangePicker = el("div", "dra-range-picker");
-    const fromSelect = document.createElement("select");
-    const toSelect = document.createElement("select");
-    const emptyOpt = document.createElement("option");
-    emptyOpt.value = "";
-    emptyOpt.textContent = "From...";
-    fromSelect.appendChild(emptyOpt);
-    const emptyOpt2 = document.createElement("option");
-    emptyOpt2.value = "";
-    emptyOpt2.textContent = "To...";
-    toSelect.appendChild(emptyOpt2);
-    for (const [day] of sorted) {
-      const o1 = document.createElement("option");
-      o1.value = day;
-      o1.textContent = day;
-      fromSelect.appendChild(o1);
-      const o2 = document.createElement("option");
-      o2.value = day;
-      o2.textContent = day;
-      toSelect.appendChild(o2);
-    }
-    rangePicker.appendChild(fromSelect);
-    rangePicker.appendChild(el("span", null, "to"));
-    rangePicker.appendChild(toSelect);
-
-    const rangeBtn = el("button", "dra-btn dra-btn-secondary", "Select Range");
-    rangePicker.appendChild(rangeBtn);
-    const selectAllBtn = el("button", "dra-btn dra-btn-secondary", "Select All");
-    rangePicker.appendChild(selectAllBtn);
-    panel.appendChild(rangePicker);
-
-    // Count
-    const countEl = el("p", "dra-cancel-count", "Updating 0 days.");
-    panel.appendChild(countEl);
-
-    function updateCount() {
-      countEl.textContent = "Updating " + checked.size + " day" + (checked.size !== 1 ? "s" : "") + ".";
-    }
-
-    // Individual checkboxes with current times
-    panel.appendChild(el("p", "dra-section-label", "Or select individual days"));
-    const checkList = el("div");
-    checkList.style.maxHeight = "15rem";
-    checkList.style.overflowY = "auto";
-    checkList.style.border = "1px solid #e0e0e0";
-    checkList.style.borderRadius = "8px";
-    checkList.style.padding = "0.25rem 0.5rem";
-    const checkboxes = [];
-    for (const [day, info] of sorted) {
-      const item = el("div", "dra-res-item");
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.className = "dra-cancel-check";
-      cb.addEventListener("change", () => {
-        if (cb.checked) checked.add(day);
-        else checked.delete(day);
-        updateCount();
-      });
-      checkboxes.push({ day, cb });
-      item.appendChild(cb);
-      item.appendChild(el("span", "dra-res-date", day));
-      const d = new Date(day + "T12:00:00Z");
-      item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
-      const currentTimes = formatUtcToEt(info.startAt) + " – " + formatUtcToEt(info.endAt);
-      item.appendChild(el("span", "dra-res-status", currentTimes));
-      checkList.appendChild(item);
-    }
-    panel.appendChild(checkList);
-
-    rangeBtn.addEventListener("click", () => {
-      const from = fromSelect.value;
-      const to = toSelect.value;
-      if (!from || !to) return;
-      for (const { day, cb } of checkboxes) {
-        if (day >= from && day <= to) {
-          cb.checked = true;
-          checked.add(day);
-        }
-      }
-      updateCount();
+    const { frag, checked } = buildDatePicker({
+      sorted,
+      countLabel: "Updating",
+      renderRow: (item, info) => {
+        const currentTimes = formatUtcToEt(info.startAt) + " – " + formatUtcToEt(info.endAt);
+        item.appendChild(el("span", "dra-res-status", currentTimes));
+      },
     });
-
-    selectAllBtn.addEventListener("click", () => {
-      for (const { day, cb } of checkboxes) {
-        cb.checked = true;
-        checked.add(day);
-      }
-      updateCount();
-    });
+    panel.appendChild(frag);
 
     // Actions
     const actions = el("div", "dra-actions");
