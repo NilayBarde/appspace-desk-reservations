@@ -1,8 +1,9 @@
-import { extractToken } from "./identity.js";
-import { createApi } from "./api.js";
-import { createApp } from "./ui.js";
-
 const PAGES_BASE = "https://nilaybarde.github.io/appspace-desk-reservations/app";
+const v = Date.now();
+
+const { extractToken } = await import(`./identity.js?v=${v}`);
+const { createApi } = await import(`./api.js?v=${v}`);
+const { createApp } = await import(`./ui.js?v=${v}`);
 
 async function init() {
   const identity = extractToken(sessionStorage);
