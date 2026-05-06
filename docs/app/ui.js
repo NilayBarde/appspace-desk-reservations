@@ -396,7 +396,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const checked = new Set();
     const frag = document.createDocumentFragment();
 
-    frag.appendChild(el("p", "dra-section-label", "Select date range"));
+    frag.appendChild(el("p", "dra-section-label", "Select days"));
     const rangePicker = el("div", "dra-range-picker");
     const fromSelect = document.createElement("select");
     const toSelect = document.createElement("select");
@@ -433,13 +433,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       countEl.textContent = countLabel + " " + checked.size + " day" + (checked.size !== 1 ? "s" : "") + ".";
     }
 
-    frag.appendChild(el("p", "dra-section-label", "Or select individual days"));
-    const checkList = el("div");
-    checkList.style.maxHeight = "15rem";
-    checkList.style.overflowY = "auto";
-    checkList.style.border = "1px solid #e0e0e0";
-    checkList.style.borderRadius = "8px";
-    checkList.style.padding = "0.25rem 0.5rem";
+    const checkList = el("div", "dra-scroll-list");
     const checkboxes = [];
     for (const [day, info] of sorted) {
       const item = el("div", "dra-res-item");
@@ -481,7 +475,7 @@ export function createApp({ api, user, deskLookup, storage }) {
   // ---- CANCEL VIEW ----
   function renderCancel(sorted, resourceId) {
     clear();
-    panel.appendChild(el("h2", "dra-title", "Cancel Reservations"));
+    panel.appendChild(el("h2", "dra-title", "Cancel Days"));
 
     const { frag, checked } = buildDatePicker({ sorted, countLabel: "Cancelling" });
     panel.appendChild(frag);
@@ -633,12 +627,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     clear();
     panel.appendChild(el("h2", "dra-title", "All Reservations"));
 
-    const listWrap = el("div");
+    const listWrap = el("div", "dra-scroll-list");
     listWrap.style.maxHeight = "20rem";
-    listWrap.style.overflowY = "auto";
-    listWrap.style.border = "1px solid #e0e0e0";
-    listWrap.style.borderRadius = "8px";
-    listWrap.style.padding = "0.25rem 0.5rem";
 
     let currentMonth = "";
     for (const [day] of sorted) {

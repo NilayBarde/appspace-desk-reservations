@@ -366,6 +366,14 @@
   font-size: 0.85rem;
 }
 
+.dra-scroll-list {
+  max-height: 15rem;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+}
+
 .dra-cancel-count {
   font-size: 0.9rem;
   font-weight: 600;
