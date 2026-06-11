@@ -254,7 +254,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       return;
     }
 
-    const { own, others } = parseExistingBookings(events, user.id);
+    const { own, others, othersDates } = parseExistingBookings(events, user.id);
     const sorted = [...own.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
     // Update status (expandable)
@@ -369,7 +369,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Enable Book button
     bookBtn.className = "dra-btn dra-btn-primary";
     bookBtn.disabled = false;
-    bookBtn.addEventListener("click", () => renderBookSetup(resourceId, own));
+    bookBtn.addEventListener("click", () => renderBookSetup(resourceId, own, othersDates));
 
     // Enable secondary buttons if there are bookings
     if (sorted.length > 0) {
@@ -637,14 +637,17 @@ export function createApp({ api, user, deskLookup, storage }) {
 
 
   // ---- BOOK SETUP VIEW ----
-  function renderBookSetup(resourceId, existingOwn) {
+  function renderBookSetup(resourceId, existingOwn, othersDates = new Set()) {
     clear();
     const prefs = loadPrefs(storage);
     panel.appendChild(el("h2", "dra-title", "Book New Days"));
 
-    const existingDates = new Set(existingOwn.keys());
-    const existingCount = existingDates.size;
+    const ownDates = new Set(existingOwn.keys());
+    const existingCount = ownDates.size;
     const remaining = Math.max(0, MAX_BOOKING_DAYS - existingCount);
+    // Exclude both the user's own bookings and days another person already holds
+    // this desk — patching onto an occupied day is rejected by Appspace (HTTP 400).
+    const existingDates = new Set([...ownDates, ...othersDates]);
 
     if (remaining === 0) {
       panel.appendChild(el("div", "dra-warning", "You've reached the " + MAX_BOOKING_DAYS + "-day booking limit. Cancel some days first to book new ones."));

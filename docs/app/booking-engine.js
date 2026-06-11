@@ -173,6 +173,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
 export function parseExistingBookings(events, organizerId) {
   const own = new Map();
   const others = new Map();
+  const othersDates = new Set();
   for (const item of events) {
     const status = (item.status || "").toLowerCase();
     if (["cancelled", "canceled", "released"].includes(status)) continue;
@@ -190,8 +191,9 @@ export function parseExistingBookings(events, organizerId) {
       const name = org.name || "Unknown";
       if (!others.has(name)) others.set(name, 0);
       others.set(name, others.get(name) + 1);
+      if (day) othersDates.add(day);
     }
   }
-  return { own, others };
+  return { own, others, othersDates };
 }
 
