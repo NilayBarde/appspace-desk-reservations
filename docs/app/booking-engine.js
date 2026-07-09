@@ -47,6 +47,16 @@ function checkExpired(status) {
   }
 }
 
+// Pull a human-readable rejection reason out of an Appspace error body. The API
+// returns the reason under different keys depending on the endpoint (top-level
+// message, or a constraint object with type/description), so try each in turn.
+function describeError(body) {
+  if (!body || typeof body !== "object") return "";
+  if (body.message) return body.message;
+  const parts = [body.type, body.description].filter(Boolean);
+  return parts.join(": ");
+}
+
 async function bookOneDay({ api, resourceId, targetDate, parkDate, user, todayStr, title, startHour, startMin, endHour, endMin }) {
   const startTime = etToUtc(targetDate, startHour, startMin);
   const endTime = etToUtc(targetDate, endHour, endMin);
@@ -73,7 +83,7 @@ async function bookOneDay({ api, resourceId, targetDate, parkDate, user, todaySt
   const resId = body.id;
 
   if (!eventId) {
-    return { ok: false, date: targetDate, error: body.message || `HTTP ${status}` };
+    return { ok: false, date: targetDate, error: describeError(body) || `HTTP ${status}` };
   }
 
   const patchResult = await api.patchEventDate(eventId, targetDate, startTime, endTime);
@@ -85,7 +95,9 @@ async function bookOneDay({ api, resourceId, targetDate, parkDate, user, todaySt
   }
 
   await api.deleteReservation(resId);
-  return { ok: false, date: targetDate, error: `PATCH failed (HTTP ${patchResult.status}${actualStart ? ", got " + actualStart : ""})` };
+  const patchReason = describeError(patchResult.body);
+  const detail = [patchReason, actualStart ? "got " + actualStart : ""].filter(Boolean).join(", ");
+  return { ok: false, date: targetDate, error: `PATCH failed (HTTP ${patchResult.status}${detail ? ": " + detail : ""})` };
 }
 
 export async function bookAllDays({ api, resourceId, user, targetDates, todayStr, onProgress, signal, title, startHour = 9, startMin = 0, endHour = 17, endMin = 0 }) {

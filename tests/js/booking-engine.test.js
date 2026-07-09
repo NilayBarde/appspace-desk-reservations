@@ -105,6 +105,39 @@ describe("bookAllDays", () => {
     assert.ok(!results[0].ok);
   });
 
+  it("surfaces the server's rejection reason on patch failure", async () => {
+    const today = "2026-06-15";
+    const farDate = "2026-08-03";
+
+    const api = {
+      calls: [],
+      async getResourceEvents() { return []; },
+      async createReservation(resourceId, dateStr) {
+        if (dateStr === farDate) return { status: 400, body: { message: "too far out" } };
+        return { status: 200, body: { id: "res-1", events: [{ id: "evt-1" }] } };
+      },
+      async patchEventDate() {
+        return { status: 400, body: { type: "MaxAdvanceBooking", description: "Max reservation date." } };
+      },
+      async deleteReservation() { return { status: 200, body: {} }; },
+    };
+
+    const results = [];
+    await bookAllDays({
+      api,
+      resourceId: "res-1",
+      user: { id: "u1", name: "Test", email: "t@t.com" },
+      targetDates: [farDate],
+      todayStr: today,
+      onProgress: (r) => results.push(r),
+    });
+
+    assert.ok(!results[0].ok);
+    assert.match(results[0].error, /HTTP 400/);
+    assert.match(results[0].error, /MaxAdvanceBooking/);
+    assert.match(results[0].error, /Max reservation date/);
+  });
+
   it("calls onProgress for each date", async () => {
     const api = createMockApi();
     const today = "2026-06-15";
