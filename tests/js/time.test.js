@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { etToUtc, formatUtcToEt } from "../../docs/app/time.js";
+import { etToUtc, formatUtcToEt, todayEt, addDays } from "../../docs/app/time.js";
 
 describe("etToUtc", () => {
   it("converts 9:00 AM ET to 13:00 UTC during EDT (summer)", () => {
@@ -55,5 +55,31 @@ describe("formatUtcToEt", () => {
 
   it("returns empty string for null input", () => {
     assert.equal(formatUtcToEt(null), "");
+  });
+});
+
+describe("todayEt", () => {
+  it("returns the ET date in the evening when UTC has rolled over (EDT)", () => {
+    // 2026-09-24 9:30 PM EDT = 2026-09-25 01:30 UTC
+    assert.equal(todayEt(new Date("2026-09-25T01:30:00Z")), "2026-09-24");
+  });
+
+  it("returns the ET date in the evening when UTC has rolled over (EST)", () => {
+    // 2026-01-15 7:30 PM EST = 2026-01-16 00:30 UTC
+    assert.equal(todayEt(new Date("2026-01-16T00:30:00Z")), "2026-01-15");
+  });
+
+  it("matches the UTC date during the ET daytime", () => {
+    assert.equal(todayEt(new Date("2026-09-24T14:00:00Z")), "2026-09-24");
+  });
+});
+
+describe("addDays", () => {
+  it("adds days across a month boundary", () => {
+    assert.equal(addDays("2026-09-28", 5), "2026-10-03");
+  });
+
+  it("adds days across the DST fall-back date", () => {
+    assert.equal(addDays("2026-10-31", 2), "2026-11-02");
   });
 });

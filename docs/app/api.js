@@ -1,3 +1,5 @@
+import { etToUtc, todayEt, addDays } from "./time.js";
+
 export function createApi(fetchFn, token) {
   async function request(method, path, body) {
     const options = {
@@ -72,10 +74,13 @@ export function createApi(fetchFn, token) {
     },
 
     async getTodayEvents() {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayEt();
+      const tomorrow = addDays(today, 1);
+      const dayStart = `${today}T${etToUtc(today, 0, 0)}`;
+      const dayEnd = `${tomorrow}T${etToUtc(tomorrow, 0, 0)}`;
       const { body } = await request(
         "GET",
-        `/api/v3/reservation/users/me/events?sort=startAt&status=NotConfirmed%2C%20Pending%2C%20Checkin%2C%20Active&includesourceobject=true&startAt=${today}T05:00:00.000Z&endAt=${today}T23:59:59.999Z&page=1&start=0&limit=20`
+        `/api/v3/reservation/users/me/events?sort=startAt&status=NotConfirmed%2C%20Pending%2C%20Checkin%2C%20Active&includesourceobject=true&startAt=${dayStart}&endAt=${dayEnd}&page=1&start=0&limit=20`
       );
       return body.items || [];
     },
