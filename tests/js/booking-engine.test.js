@@ -138,6 +138,70 @@ describe("bookAllDays", () => {
     assert.match(results[0].error, /Max reservation date/);
   });
 
+  it("never frees today's booking as a park date", async () => {
+    // 2026-06-15 is a Monday. Every day this week and next Monday is booked by the user.
+    const today = "2026-06-15";
+    const farDate = "2026-08-03";
+    const own = ["2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-22"];
+    const existingEvents = own.map((day, i) => ({
+      startAt: `${day}T13:00:00.000Z`,
+      status: day === today ? "Active" : "Pending",
+      organizer: { id: "u1", name: "Test" },
+      reservationId: `own-${i}`,
+    }));
+
+    const api = createMockApi({
+      existingEvents,
+      createFn: (dateStr) => {
+        if (dateStr === farDate) return { status: 400, body: { message: "too far out" } };
+        return { status: 200, body: { id: "res-park", events: [{ id: "evt-park" }] } };
+      },
+    });
+
+    await bookAllDays({
+      api,
+      resourceId: "res-1",
+      user: { id: "u1", name: "Test", email: "t@t.com" },
+      targetDates: [farDate],
+      todayStr: today,
+      onProgress: () => {},
+    });
+
+    const deletes = api.calls.filter((c) => c.action === "delete").map((c) => c.resId);
+    assert.ok(!deletes.includes("own-0"), "today's booking must not be freed");
+    assert.ok(!deletes.includes("own-1"), "tomorrow's booking must not be freed");
+    assert.equal(deletes[0], "own-2", "earliest booking 2+ days out is freed");
+    const parkCreate = api.calls.find((c) => c.action === "create" && c.dateStr !== farDate);
+    assert.equal(parkCreate.dateStr, "2026-06-17");
+  });
+
+  it("throws instead of freeing today when no later own booking exists", async () => {
+    const today = "2026-06-15";
+    const farDate = "2026-08-03";
+    const others = ["2026-06-17", "2026-06-18", "2026-06-19", "2026-06-22"];
+    const existingEvents = [
+      { startAt: `${today}T13:00:00.000Z`, status: "Active", organizer: { id: "u1" }, reservationId: "own-today" },
+      ...others.map((day) => ({ startAt: `${day}T13:00:00.000Z`, status: "Pending", organizer: { id: "u2" }, reservationId: "x" })),
+    ];
+    const api = createMockApi({
+      existingEvents,
+      createFn: () => ({ status: 400, body: { message: "too far out" } }),
+    });
+
+    await assert.rejects(
+      bookAllDays({
+        api,
+        resourceId: "res-1",
+        user: { id: "u1", name: "Test", email: "t@t.com" },
+        targetDates: [farDate],
+        todayStr: today,
+        onProgress: () => {},
+      }),
+      /No free park dates/
+    );
+    assert.ok(!api.calls.some((c) => c.action === "delete"));
+  });
+
   it("calls onProgress for each date", async () => {
     const api = createMockApi();
     const today = "2026-06-15";
