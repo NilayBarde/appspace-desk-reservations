@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm test
+
+  version-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a VERSION bump when the app changes
+        run: |
+          base="origin/${{ github.base_ref }}"
+          if git diff --quiet "$base"...HEAD -- docs/app; then
+            echo "No app changes; version bump not required."
+            exit 0
+          fi
+          old=$(git show "$base:docs/app/version.js" | grep -o '"[0-9][0-9.]*"' || echo '""')
+          new=$(grep -o '"[0-9][0-9.]*"' docs/app/version.js)
+          if [ "$old" = "$new" ]; then
+            echo "::error file=docs/app/version.js::docs/app changed but VERSION is still $new. Bump it (patch for fixes, minor for features)."
+            exit 1
+          fi
+          echo "VERSION $old -> $new"

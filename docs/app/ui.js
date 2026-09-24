@@ -1,8 +1,11 @@
-import { loadPrefs, savePrefs, saveLastBookedDate, parseTime } from "./preferences.js";
-import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
-import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
-import { searchDesks, parseAvailability } from "./desk-search.js";
-import { etToUtc, formatUtcToEt, todayEt, addDays, DOW_NAMES } from "./time.js";
+// Carry the loader's ?v= cache-buster to every import so all modules come from the same release.
+const q = new URL(import.meta.url).search;
+const { loadPrefs, savePrefs, saveLastBookedDate, parseTime } = await import(`./preferences.js${q}`);
+const { getTargetDates, bookAllDays, parseExistingBookings } = await import(`./booking-engine.js${q}`);
+const { HOLIDAYS, HOLIDAY_YEAR } = await import(`./holidays.js${q}`);
+const { searchDesks, parseAvailability } = await import(`./desk-search.js${q}`);
+const { etToUtc, formatUtcToEt, todayEt, addDays, DOW_NAMES } = await import(`./time.js${q}`);
+const { VERSION } = await import(`./version.js${q}`);
 
 const MAX_BOOKING_DAYS = 90;
 
@@ -25,11 +28,19 @@ export function createApp({ api, user, deskLookup, storage }) {
     overlay.remove();
   }
 
+  const topBar = document.createElement("div");
+  topBar.className = "dra-topbar";
+  const versionTag = document.createElement("span");
+  versionTag.className = "dra-version";
+  versionTag.textContent = "v" + VERSION;
+  versionTag.title = "Book My Desk version";
+  topBar.appendChild(versionTag);
   const closeX = document.createElement("button");
   closeX.className = "dra-btn-x";
   closeX.textContent = "×";
   closeX.addEventListener("click", dismiss);
-  panel.appendChild(closeX);
+  topBar.appendChild(closeX);
+  panel.appendChild(topBar);
 
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) dismiss();
@@ -46,7 +57,7 @@ export function createApp({ api, user, deskLookup, storage }) {
 
   function clear() {
     while (panel.firstChild) panel.removeChild(panel.firstChild);
-    panel.appendChild(closeX);
+    panel.appendChild(topBar);
   }
 
   function el(tag, cls, text) {

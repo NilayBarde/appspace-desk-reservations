@@ -21,10 +21,21 @@
   max-height: 90vh;
   overflow-y: auto;
 }
-.dra-btn-x {
+.dra-topbar {
   position: sticky;
   top: 0;
   float: right;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 1;
+}
+.dra-version {
+  font-size: 0.72rem;
+  color: #999;
+  font-variant-numeric: tabular-nums;
+}
+.dra-btn-x {
   background: none;
   border: none;
   font-size: 1.5rem;
