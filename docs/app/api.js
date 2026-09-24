@@ -1,4 +1,6 @@
-import { etToUtc, todayEt, addDays } from "./time.js";
+// Carry the loader's ?v= cache-buster to every import so all modules come from the same release.
+const q = new URL(import.meta.url).search;
+const { etToUtc, todayEt, addDays } = await import(`./time.js${q}`);
 
 export function createApi(fetchFn, token) {
   async function request(method, path, body) {

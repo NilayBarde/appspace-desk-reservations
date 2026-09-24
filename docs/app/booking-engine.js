@@ -1,4 +1,6 @@
-import { etToUtc, DOW_NAMES } from "./time.js";
+// Carry the loader's ?v= cache-buster to every import so all modules come from the same release.
+const q = new URL(import.meta.url).search;
+const { etToUtc, DOW_NAMES } = await import(`./time.js${q}`);
 
 export function getTargetDates({ startDate, endDate, selectedDays, existingDates, holidays }) {
   const dates = [];

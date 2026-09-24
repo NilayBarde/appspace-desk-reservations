@@ -43,6 +43,10 @@ The app is hosted on GitHub Pages from the `/docs` directory. To enable:
 2. Set Source to **Deploy from a branch**, branch `main`, folder `/docs`
 3. Save
 
+#### Releasing
+
+Every change under `docs/app/` ships to users on merge, so bump `VERSION` in `docs/app/version.js` in the same PR (patch for fixes, minor for features). CI fails the PR if you forget. The version shows next to the close button in the overlay, so users can confirm they're on the latest release.
+
 #### Updating DESK_LOOKUP.json
 
 The desk lookup maps ~32K desk names to Appspace resource IDs. To regenerate:
