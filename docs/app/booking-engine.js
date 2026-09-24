@@ -139,6 +139,9 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
 
   let freedParkDate = null;
   if (parkCandidates.length === 0) {
+    // Only free a booking inside the park window. Today's booking may already be
+    // active (checked in), and a park reservation on an active day can't be patched.
+    const parkWindow = new Set(findParkCandidates(todayStr, new Set()));
     const ownBookings = parkEvents
       .filter((item) => {
         const st = (item.status || "").toLowerCase();
@@ -146,6 +149,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
         return (item.organizer || {}).id === user.id;
       })
       .map((item) => ({ day: (item.startAt || "").slice(0, 10), reservationId: item.reservationId }))
+      .filter((b) => parkWindow.has(b.day))
       .sort((a, b) => a.day.localeCompare(b.day));
 
     if (ownBookings.length === 0) {

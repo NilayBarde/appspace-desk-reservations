@@ -2,7 +2,7 @@ import { loadPrefs, savePrefs, saveLastBookedDate, parseTime } from "./preferenc
 import { getTargetDates, bookAllDays, parseExistingBookings } from "./booking-engine.js";
 import { HOLIDAYS, HOLIDAY_YEAR } from "./holidays.js";
 import { searchDesks, parseAvailability } from "./desk-search.js";
-import { etToUtc, formatUtcToEt, DOW_NAMES } from "./time.js";
+import { etToUtc, formatUtcToEt, todayEt, addDays, DOW_NAMES } from "./time.js";
 
 const MAX_BOOKING_DAYS = 90;
 
@@ -109,8 +109,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     }
 
     async function fetchAvailability(results) {
-      const today = new Date().toISOString().slice(0, 10);
-      const endDate = new Date(Date.now() + MAX_BOOKING_DAYS * 86400000).toISOString().slice(0, 10);
+      const today = todayEt();
+      const endDate = addDays(today, MAX_BOOKING_DAYS);
       return Promise.all(results.map(async (r) => {
         if (availCache.has(r.resourceId)) {
           return { ...r, availability: availCache.get(r.resourceId) };
@@ -212,7 +212,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const statusEl = el("p", "dra-stats", "Loading bookings...");
     panel.appendChild(statusEl);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayEt();
     const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
     const isWeekday = todayDow >= 1 && todayDow <= 5;
 
@@ -244,7 +244,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(secondaryRow);
 
     // Fetch data then enable
-    const endDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+    const endDate = addDays(today, 365);
     let events;
     try {
       events = await api.getResourceEvents(resourceId, today, endDate);
@@ -707,8 +707,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(holidayWarn);
 
     function updatePreview() {
-      const today = new Date().toISOString().slice(0, 10);
-      const endDate = new Date(Date.now() + horizon * 86400000).toISOString().slice(0, 10);
+      const today = todayEt();
+      const endDate = addDays(today, horizon);
       const allTargets = getTargetDates({ startDate: today, endDate, selectedDays, existingDates, holidays: HOLIDAYS });
       targetDates = allTargets.slice(0, remaining);
       if (targetDates.length > 0) {
@@ -784,7 +784,7 @@ export function createApp({ api, user, deskLookup, storage }) {
         resourceId,
         user,
         targetDates,
-        todayStr: new Date().toISOString().slice(0, 10),
+        todayStr: todayEt(),
         signal: abortCtrl.signal,
         title: prefs.title || undefined,
         startHour,

@@ -36,4 +36,23 @@ export function formatUtcToEt(utcStr) {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm} ${isDst ? "EDT" : "EST"}`;
 }
 
+const ET_DATE_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+// Today's date in ET as YYYY-MM-DD. UTC rolls over at 7-8 PM ET, so
+// toISOString() would report tomorrow for evening users.
+export function todayEt(now = new Date()) {
+  return ET_DATE_FORMAT.format(now);
+}
+
+export function addDays(dateStr, days) {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export { DOW_NAMES };
