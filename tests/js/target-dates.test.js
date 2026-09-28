@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { HOLIDAYS } from "../../docs/app/holidays.js";
+import { HOLIDAYS, HOLIDAY_YEAR } from "../../docs/app/holidays.js";
 import { getTargetDates } from "../../docs/app/booking-engine.js";
 
 describe("HOLIDAYS", () => {
@@ -8,6 +8,17 @@ describe("HOLIDAYS", () => {
     assert.ok(HOLIDAYS.includes("2026-01-01"));
     assert.ok(HOLIDAYS.includes("2026-12-25"));
     assert.ok(HOLIDAYS.includes("2026-11-26"));
+  });
+
+  it("contains 2027 observed holidays", () => {
+    assert.ok(HOLIDAYS.includes("2027-01-01"));
+    assert.ok(HOLIDAYS.includes("2027-06-18"));
+    assert.ok(HOLIDAYS.includes("2027-12-24"));
+  });
+
+  it("sets HOLIDAY_YEAR to the latest year listed", () => {
+    const latest = Math.max(...HOLIDAYS.map((h) => Number(h.slice(0, 4))));
+    assert.equal(HOLIDAY_YEAR, latest);
   });
 
   it("does not contain weekends", () => {
