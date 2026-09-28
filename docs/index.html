@@ -47,8 +47,7 @@
 
     <p style="margin:1rem 0 0.35rem;"><strong>Step 2 — Use it</strong></p>
     <ol class="steps" style="margin:0;">
-      <li>Log into <a href="https://disney.cloud.appspace.com/" target="_blank" rel="noopener noreferrer">Appspace ↗</a>.</li>
-      <li>Click <strong>Book My Desk</strong> in the bookmarks bar.</li>
+      <li>Click <strong>Book My Desk</strong> in the bookmarks bar. If you're not on <a href="https://disney.cloud.appspace.com/" target="_blank" rel="noopener noreferrer">Appspace ↗</a>, it takes you there first; click it once more when the page loads.</li>
       <li>First time: pick your desk (search by name), pick your weekdays, set booking horizon.</li>
       <li>Returning: see your dashboard — click <strong>Book New Days</strong> when new days are available.</li>
     </ol>
@@ -61,13 +60,17 @@
 
   <details>
     <summary>Bookmark not working?</summary>
-    <p>Make sure you're logged into Appspace in the same tab before clicking the bookmark. If you see a Content Security Policy error, try this: open the browser console (F12) and paste the bookmarklet code manually.</p>
+    <p>The bookmark opens the tool on the Appspace tab it's clicked from. If it sends you to Appspace, click it again once the page has loaded. If you see a Content Security Policy error, try this: open the browser console (F12) and paste the bookmarklet code manually.</p>
   </details>
 
   <script>
     (function() {
       var base = 'https://nilaybarde.github.io/appspace-desk-reservations/app/main.js';
-      document.getElementById('bookmarklet').href = "javascript:" + encodeURIComponent("(function(){if(!sessionStorage.jwt){alert('Log into Appspace first, then click this bookmark again.');return;}var e=document.getElementById('desk-res-app');if(e){e.remove();return;}var o=document.getElementById('desk-res-loader');if(o)o.remove();var s=document.createElement('script');s.id='desk-res-loader';s.type='module';s.src='" + base + "?v='+Date.now();document.head.appendChild(s);})()");
+      var host = 'disney.cloud.appspace.com';
+      // Off Appspace: go to the home page. The script cannot survive a cross-origin
+      // navigation, so the user clicks the bookmark once more when the page loads.
+      // On Appspace: wait up to 20s for the session to appear before giving up.
+      document.getElementById('bookmarklet').href = "javascript:" + encodeURIComponent("(function(){if(location.hostname!=='" + host + "'){location.href='https://" + host + "/';return;}var e=document.getElementById('desk-res-app');if(e){e.remove();return;}var n=0;(function go(){if(!sessionStorage.jwt){if(++n>40){alert('Log into Appspace first, then click this bookmark again.');return;}setTimeout(go,500);return;}var o=document.getElementById('desk-res-loader');if(o)o.remove();var s=document.createElement('script');s.id='desk-res-loader';s.type='module';s.src='" + base + "?v='+Date.now();document.head.appendChild(s);})();})()");
     })();
   </script>
 </body>
