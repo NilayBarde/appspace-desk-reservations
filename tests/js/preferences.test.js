@@ -11,6 +11,12 @@ describe("loadPrefs", () => {
     assert.deepEqual(prefs.days, []);
     assert.equal(prefs.lastBookedDate, null);
     assert.equal(prefs.title, "");
+    assert.equal(prefs.horizon, 30);
+  });
+
+  it("reads a saved horizon", () => {
+    const storage = createMockStorage({ deskRes_horizon: "90" });
+    assert.equal(loadPrefs(storage).horizon, 90);
   });
 
   it("reads saved values", () => {
@@ -34,5 +40,14 @@ describe("savePrefs", () => {
     savePrefs(storage, { desk: "08W-1", days: ["Mon", "Fri"] });
     assert.equal(storage.getItem("deskRes_desk"), "08W-1");
     assert.equal(storage.getItem("deskRes_days"), "Mon,Fri");
+  });
+});
+
+describe("savePrefs horizon", () => {
+  it("writes the horizon and leaves other prefs alone", () => {
+    const storage = createMockStorage({ deskRes_desk: "08W-1" });
+    savePrefs(storage, { horizon: 60 });
+    assert.equal(storage.getItem("deskRes_horizon"), "60");
+    assert.equal(storage.getItem("deskRes_desk"), "08W-1");
   });
 });

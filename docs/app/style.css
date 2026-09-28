@@ -343,12 +343,7 @@
 }
 
 .dra-res-date {
-  min-width: 6rem;
-}
-
-.dra-res-day {
-  min-width: 2.5rem;
-  color: #555;
+  min-width: 8.5rem;
 }
 
 .dra-res-status {
@@ -408,6 +403,23 @@
   font-size: 0.9rem;
   color: #555;
   margin: 0 0 1rem;
+}
+
+.dra-ready {
+  font-size: 0.85rem;
+  color: #888;
+  margin: -0.75rem 0 1rem;
+}
+
+.dra-ready-some {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.dra-field-error {
+  font-size: 0.78rem;
+  color: #b71c1c;
+  margin: 0.35rem 0 0;
 }
 
 .dra-btn-disabled {

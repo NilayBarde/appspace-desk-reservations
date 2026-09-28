@@ -1,10 +1,10 @@
 // Carry the loader's ?v= cache-buster to every import so all modules come from the same release.
 const q = new URL(import.meta.url).search;
 const { loadPrefs, savePrefs, saveLastBookedDate, parseTime } = await import(`./preferences.js${q}`);
-const { getTargetDates, bookAllDays, parseExistingBookings } = await import(`./booking-engine.js${q}`);
+const { getTargetDates, bookAllDays, cancelReservations, parseExistingBookings } = await import(`./booking-engine.js${q}`);
 const { HOLIDAYS, HOLIDAY_YEAR } = await import(`./holidays.js${q}`);
 const { searchDesks, parseAvailability } = await import(`./desk-search.js${q}`);
-const { etToUtc, formatUtcToEt, todayEt, addDays, DOW_NAMES } = await import(`./time.js${q}`);
+const { etToUtc, formatUtcToEt, todayEt, addDays, formatDay, formatClock } = await import(`./time.js${q}`);
 const { VERSION } = await import(`./version.js${q}`);
 
 const MAX_BOOKING_DAYS = 90;
@@ -21,11 +21,26 @@ export function createApp({ api, user, deskLookup, storage }) {
   panel.className = "dra-panel";
   overlay.appendChild(panel);
 
+  // Set while a booking, cancellation or time edit is running, so closing the
+  // panel mid-run asks first and then stops the run.
   let activeAbort = null;
 
   function dismiss() {
-    if (activeAbort) activeAbort.abort();
+    if (activeAbort) {
+      if (!window.confirm("Changes are still in progress. Stop and close?")) return;
+      activeAbort.abort();
+    }
     overlay.remove();
+    document.removeEventListener("keydown", onKeydown);
+  }
+
+  function onKeydown(e) {
+    // The bookmarklet can remove the overlay directly, bypassing dismiss().
+    if (!overlay.isConnected) {
+      document.removeEventListener("keydown", onKeydown);
+      return;
+    }
+    if (e.key === "Escape") dismiss();
   }
 
   const topBar = document.createElement("div");
@@ -46,9 +61,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     if (e.target === overlay) dismiss();
   });
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") dismiss();
-  });
+  document.addEventListener("keydown", onKeydown);
 
   document.body.appendChild(overlay);
 
@@ -74,6 +87,8 @@ export function createApp({ api, user, deskLookup, storage }) {
     const prefs = loadPrefs(storage);
     let selectedDesk = prefs.desk ? { name: prefs.desk, resourceId: deskLookup[prefs.desk] } : null;
     const selectedDays = new Set(prefs.days);
+    // Replaced once bookings load; toggling a day refreshes the ready-to-book count.
+    let updateReady = () => {};
 
     // == Section A: Settings ==
     panel.appendChild(el("p", "dra-section-label", "Your desk"));
@@ -167,6 +182,7 @@ export function createApp({ api, user, deskLookup, storage }) {
           btn.className = "dra-day-btn dra-selected";
         }
         savePrefs(storage, { days: [...selectedDays] });
+        updateReady();
       });
       daysRow.appendChild(btn);
     }
@@ -181,11 +197,22 @@ export function createApp({ api, user, deskLookup, storage }) {
     panel.appendChild(el("p", "dra-section-label", "Booking hours"));
     const { row: timeRow, startInput: startTimeInput, endInput: endTimeInput } = buildTimeRow(prefs.startTime || "09:00", prefs.endTime || "17:00");
     panel.appendChild(timeRow);
+    const timeError = el("p", "dra-field-error");
+    timeError.style.display = "none";
+    panel.appendChild(timeError);
 
     function saveTimesIfValid() {
       const s = startTimeInput.value || "09:00";
       const e = endTimeInput.value || "17:00";
-      if (s < e) savePrefs(storage, { startTime: s, endTime: e });
+      if (s < e) {
+        savePrefs(storage, { startTime: s, endTime: e });
+        timeError.style.display = "none";
+        return;
+      }
+      const saved = loadPrefs(storage);
+      timeError.textContent = "Start time must be before end time. New bookings keep using " +
+        formatClock(saved.startTime) + " to " + formatClock(saved.endTime) + ".";
+      timeError.style.display = "";
     }
     startTimeInput.addEventListener("change", saveTimesIfValid);
     endTimeInput.addEventListener("change", saveTimesIfValid);
@@ -222,6 +249,9 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Render buttons immediately (disabled), enable after data loads
     const statusEl = el("p", "dra-stats", "Loading bookings...");
     panel.appendChild(statusEl);
+    const readyEl = el("p", "dra-ready");
+    readyEl.style.display = "none";
+    panel.appendChild(readyEl);
 
     const today = todayEt();
     const todayDow = new Date(today + "T12:00:00Z").getUTCDay();
@@ -271,10 +301,42 @@ export function createApp({ api, user, deskLookup, storage }) {
     // Update status (expandable)
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1][0];
-      statusEl.textContent = sorted.length + " days booked through " + lastDate;
+      statusEl.textContent = sorted.length + " days booked through " + formatDay(lastDate, today);
     } else {
       statusEl.textContent = "No upcoming bookings.";
     }
+
+    // Days that Book New Days would book at its longest horizon, so you can
+    // tell from here whether there's anything new to book.
+    const blockedDates = new Set([...own.keys(), ...othersDates]);
+    const remaining = Math.max(0, MAX_BOOKING_DAYS - own.size);
+    updateReady = () => {
+      readyEl.style.display = "";
+      readyEl.classList.remove("dra-ready-some");
+      if (selectedDays.size === 0) {
+        readyEl.textContent = "Pick your days in office to see what's open to book.";
+        return;
+      }
+      if (remaining === 0) {
+        readyEl.textContent = "You're at the " + MAX_BOOKING_DAYS + "-day booking limit.";
+        return;
+      }
+      const open = getTargetDates({
+        startDate: today,
+        endDate: addDays(today, MAX_BOOKING_DAYS),
+        selectedDays,
+        existingDates: blockedDates,
+        holidays: HOLIDAYS,
+      }).length;
+      const n = Math.min(open, remaining);
+      if (n === 0) {
+        readyEl.textContent = "Nothing new to book yet.";
+        return;
+      }
+      readyEl.textContent = n + " new day" + (n !== 1 ? "s" : "") + " ready to book.";
+      readyEl.classList.add("dra-ready-some");
+    };
+    updateReady();
 
     // Conflict warning
     if (others.size > 0) {
@@ -414,6 +476,29 @@ export function createApp({ api, user, deskLookup, storage }) {
     return { row, startInput, endInput };
   }
 
+  // ---- PROGRESS HELPER ----
+  function buildProgress(total, unit) {
+    const progressWrap = el("div", "dra-progress-wrap");
+    const bar = el("div", "dra-progress-bar");
+    const fill = el("div", "dra-progress-fill");
+    fill.style.width = "0%";
+    bar.appendChild(fill);
+    progressWrap.appendChild(bar);
+    const progressText = el("p", "dra-progress-text", "0 / " + total + unit);
+    progressWrap.appendChild(progressText);
+    const log = el("div", "dra-log");
+
+    let completed = 0;
+    function record(ok, text) {
+      completed++;
+      fill.style.width = Math.round((completed / total) * 100) + "%";
+      progressText.textContent = completed + " / " + total + unit;
+      log.appendChild(el("div", "dra-log-entry " + (ok ? "dra-log-ok" : "dra-log-fail"), text));
+      log.scrollTop = log.scrollHeight;
+    }
+    return { progressWrap, progressText, log, record };
+  }
+
   // ---- DATE PICKER HELPER ----
   function buildDatePicker({ sorted, countLabel, renderRow }) {
     const checked = new Set();
@@ -434,11 +519,11 @@ export function createApp({ api, user, deskLookup, storage }) {
     for (const [day] of sorted) {
       const o1 = document.createElement("option");
       o1.value = day;
-      o1.textContent = day;
+      o1.textContent = formatDay(day);
       fromSelect.appendChild(o1);
       const o2 = document.createElement("option");
       o2.value = day;
-      o2.textContent = day;
+      o2.textContent = formatDay(day);
       toSelect.appendChild(o2);
     }
     rangePicker.appendChild(fromSelect);
@@ -470,9 +555,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       });
       checkboxes.push({ day, cb });
       item.appendChild(cb);
-      item.appendChild(el("span", "dra-res-date", day));
-      const d = new Date(day + "T12:00:00Z");
-      item.appendChild(el("span", "dra-res-day", DOW_NAMES[d.getUTCDay()]));
+      item.appendChild(el("span", "dra-res-date", formatDay(day)));
       if (renderRow) renderRow(item, info);
       checkList.appendChild(item);
     }
@@ -507,22 +590,50 @@ export function createApp({ api, user, deskLookup, storage }) {
     const actions = el("div", "dra-actions");
     actions.style.marginTop = "1rem";
     const confirmBtn = el("button", "dra-btn dra-btn-danger", "Confirm Cancellation");
+    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
     confirmBtn.addEventListener("click", async () => {
       if (checked.size === 0) return;
       if (!window.confirm("Cancel " + checked.size + " day" + (checked.size !== 1 ? "s" : "") + "? This cannot be undone.")) return;
       confirmBtn.disabled = true;
       confirmBtn.textContent = "Cancelling...";
-      for (const day of checked) {
-        const info = sorted.find(([d]) => d === day);
-        if (info && info[1].reservationId) {
-          await api.deleteReservation(info[1].reservationId);
+      backBtn.disabled = true;
+
+      const days = [...checked].sort();
+      const { progressWrap, progressText, log, record } = buildProgress(days.length, " days");
+      panel.appendChild(progressWrap);
+      panel.appendChild(log);
+
+      const abortCtrl = new AbortController();
+      activeAbort = abortCtrl;
+      let cancelled = 0;
+      let failures = 0;
+      try {
+        await cancelReservations({
+          api,
+          bookings: new Map(sorted),
+          days,
+          signal: abortCtrl.signal,
+          onProgress: (result) => {
+            if (result.ok) cancelled++;
+            else failures++;
+            record(result.ok, formatDay(result.date) + (result.ok ? " cancelled" : " FAILED: " + result.error));
+          },
+        });
+        progressText.textContent = "Done! " + cancelled + " cancelled" + (failures > 0 ? ", " + failures + " failed" : "") + ".";
+      } catch (err) {
+        if (err.message === "SESSION_EXPIRED") {
+          panel.appendChild(el("div", "dra-error", "Your session expired after " + cancelled + " cancelled. Refresh the page, then open Book My Desk again to cancel the rest."));
+        } else {
+          progressText.textContent = "Stopped. " + cancelled + " cancelled.";
         }
+      } finally {
+        activeAbort = null;
       }
-      renderMain();
+      confirmBtn.textContent = "Done";
+      backBtn.disabled = false;
     });
     actions.appendChild(confirmBtn);
 
-    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
     backBtn.addEventListener("click", () => renderMain());
     actions.appendChild(backBtn);
     panel.appendChild(actions);
@@ -556,6 +667,7 @@ export function createApp({ api, user, deskLookup, storage }) {
     const actions = el("div", "dra-actions");
     actions.style.marginTop = "1rem";
     const applyBtn = el("button", "dra-btn dra-btn-primary", "Apply Changes");
+    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
     applyBtn.addEventListener("click", async () => {
       if (checked.size === 0) return;
       const newStart = startTimeInput.value || "09:00";
@@ -570,77 +682,61 @@ export function createApp({ api, user, deskLookup, storage }) {
 
       applyBtn.disabled = true;
       applyBtn.textContent = "Updating...";
+      backBtn.disabled = true;
 
-      const progressWrap = el("div", "dra-progress-wrap");
-      const bar = el("div", "dra-progress-bar");
-      const fill = el("div", "dra-progress-fill");
-      fill.style.width = "0%";
-      bar.appendChild(fill);
-      progressWrap.appendChild(bar);
-      const progressText = el("p", "dra-progress-text", "0 / " + checked.size);
-      progressWrap.appendChild(progressText);
+      const days = [...checked].sort();
+      const { progressWrap, progressText, log, record } = buildProgress(days.length, "");
       panel.appendChild(progressWrap);
-
-      const log = el("div", "dra-log");
       panel.appendChild(log);
 
-      let completed = 0;
+      const abortCtrl = new AbortController();
+      activeAbort = abortCtrl;
+      let updated = 0;
       let failures = 0;
+      let stopped = false;
 
-      for (const day of checked) {
-        const info = sorted.find(([d]) => d === day);
-        if (!info || !info[1].eventId) {
-          completed++;
-          failures++;
-          const entry = el("div", "dra-log-entry dra-log-fail");
-          entry.textContent = day + " SKIPPED: no event ID";
-          log.appendChild(entry);
-          continue;
-        }
-
-        const startTime = etToUtc(day, startHour, startMin);
-        const endTime = etToUtc(day, endHour, endMin);
-
-        try {
-          const { status } = await api.patchEventDate(info[1].eventId, day, startTime, endTime);
-          if (status === 401 || status === 403) {
-            panel.appendChild(el("div", "dra-error", "Session expired. Refresh the page and try again."));
-            return;
-          }
-          completed++;
-          const pct = Math.round((completed / checked.size) * 100);
-          fill.style.width = pct + "%";
-          progressText.textContent = completed + " / " + checked.size;
-
-          if (status >= 200 && status < 300) {
-            const entry = el("div", "dra-log-entry dra-log-ok");
-            entry.textContent = day + " updated";
-            log.appendChild(entry);
-          } else {
+      try {
+        for (const day of days) {
+          if (abortCtrl.signal.aborted) { stopped = true; break; }
+          const info = sorted.find(([d]) => d === day);
+          if (!info || !info[1].eventId) {
             failures++;
-            const entry = el("div", "dra-log-entry dra-log-fail");
-            entry.textContent = day + " FAILED: HTTP " + status;
-            log.appendChild(entry);
+            record(false, formatDay(day) + " SKIPPED: no event ID");
+            continue;
           }
-        } catch (err) {
-          completed++;
-          failures++;
-          const entry = el("div", "dra-log-entry dra-log-fail");
-          entry.textContent = day + " FAILED: " + (err.message || "network error");
-          log.appendChild(entry);
-          const pct = Math.round((completed / checked.size) * 100);
-          fill.style.width = pct + "%";
-          progressText.textContent = completed + " / " + checked.size;
+
+          const startTime = etToUtc(day, startHour, startMin);
+          const endTime = etToUtc(day, endHour, endMin);
+
+          try {
+            const { status } = await api.patchEventDate(info[1].eventId, day, startTime, endTime);
+            if (status === 401 || status === 403) {
+              panel.appendChild(el("div", "dra-error", "Session expired after " + updated + " updated. Refresh the page and try again."));
+              stopped = true;
+              break;
+            }
+            if (status >= 200 && status < 300) {
+              updated++;
+              record(true, formatDay(day) + " updated");
+            } else {
+              failures++;
+              record(false, formatDay(day) + " FAILED: HTTP " + status);
+            }
+          } catch (err) {
+            failures++;
+            record(false, formatDay(day) + " FAILED: " + (err.message || "network error"));
+          }
         }
-        log.scrollTop = log.scrollHeight;
+      } finally {
+        activeAbort = null;
       }
 
-      progressText.textContent = "Done! " + (completed - failures) + " updated" + (failures > 0 ? ", " + failures + " failed" : "") + ".";
+      progressText.textContent = (stopped ? "Stopped. " : "Done! ") + updated + " updated" + (failures > 0 ? ", " + failures + " failed" : "") + ".";
       applyBtn.textContent = "Done";
+      backBtn.disabled = false;
     });
     actions.appendChild(applyBtn);
 
-    const backBtn = el("button", "dra-btn dra-btn-secondary", "Back");
     backBtn.addEventListener("click", () => renderMain());
     actions.appendChild(backBtn);
     panel.appendChild(actions);
@@ -674,18 +770,20 @@ export function createApp({ api, user, deskLookup, storage }) {
 
     panel.appendChild(el("p", "dra-section-label", "How many days out?"));
     const horizonRow = el("div", "dra-horizon");
-    let horizon = 30;
+    let horizon = Math.min(Math.max(prefs.horizon, 1), MAX_BOOKING_DAYS);
     const presets = [{ label: "1 month", val: 30 }, { label: "2 months", val: 60 }, { label: "3 months", val: MAX_BOOKING_DAYS }];
     const customInput = el("input", "dra-horizon-custom");
     customInput.type = "number";
     customInput.min = "1";
     customInput.max = String(MAX_BOOKING_DAYS);
     customInput.placeholder = "days";
+    if (!presets.some((p) => p.val === horizon)) customInput.value = String(horizon);
 
     for (const p of presets) {
       const btn = el("button", "dra-horizon-btn" + (horizon === p.val ? " dra-selected" : ""), p.label);
       btn.addEventListener("click", () => {
         horizon = p.val;
+        savePrefs(storage, { horizon });
         customInput.value = "";
         horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
         btn.classList.add("dra-selected");
@@ -698,6 +796,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       const v = parseInt(customInput.value, 10);
       if (v > 0 && v <= MAX_BOOKING_DAYS) {
         horizon = v;
+        savePrefs(storage, { horizon });
         horizonRow.querySelectorAll(".dra-horizon-btn").forEach((b) => b.classList.remove("dra-selected"));
         updatePreview();
       }
@@ -723,7 +822,7 @@ export function createApp({ api, user, deskLookup, storage }) {
       const allTargets = getTargetDates({ startDate: today, endDate, selectedDays, existingDates, holidays: HOLIDAYS });
       targetDates = allTargets.slice(0, remaining);
       if (targetDates.length > 0) {
-        preview.textContent = targetDates.length + " days to book (" + targetDates[0] + " to " + targetDates[targetDates.length - 1] + ")";
+        preview.textContent = targetDates.length + " days to book (" + formatDay(targetDates[0], today) + " to " + formatDay(targetDates[targetDates.length - 1], today) + ")";
         if (allTargets.length > remaining) {
           preview.textContent += " — capped at " + MAX_BOOKING_DAYS + " total bookings";
         }
@@ -811,11 +910,11 @@ export function createApp({ api, user, deskLookup, storage }) {
           const entry = el("div", "dra-log-entry");
           if (result.ok) {
             entry.className = "dra-log-entry dra-log-ok";
-            entry.textContent = result.date + (result.existing ? " (already booked)" : " booked");
+            entry.textContent = formatDay(result.date) + (result.existing ? " (already booked)" : " booked");
             lastBooked = result.date;
           } else {
             entry.className = "dra-log-entry dra-log-fail";
-            entry.textContent = result.date + " FAILED: " + (result.error || "unknown");
+            entry.textContent = formatDay(result.date) + " FAILED: " + (result.error || "unknown");
           }
           log.appendChild(entry);
           log.scrollTop = log.scrollHeight;
