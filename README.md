@@ -31,10 +31,9 @@ The bookmarklet reads your Appspace session directly from the browser (same-orig
 
 1. Open the [Book My Desk setup page](https://nilaybarde.github.io/appspace-desk-reservations/)
 2. Drag the **Book My Desk** button to your bookmarks bar
-3. Log into [Appspace](https://disney.cloud.appspace.com/)
-4. Click **Book My Desk** in your bookmarks bar
-5. First time: search for your desk, pick your weekdays and hours (all settings auto-save)
-6. Click **Book New Days** → choose horizon → Book
+3. Click **Book My Desk** in your bookmarks bar. From any other site it opens [Appspace](https://disney.cloud.appspace.com/) first; click it once more after the page loads (a bookmark can't keep running across a page change)
+4. First time: search for your desk, pick your weekdays and hours (all settings auto-save)
+5. Click **Book New Days** → choose horizon → Book
 
 ### For Repo Maintainers
 
