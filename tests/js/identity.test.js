@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseSessionJwt, extractToken } from "../../docs/app/identity.js";
+import { parseSessionJwt, extractToken, waitForIdentity } from "../../docs/app/identity.js";
 
 function makeJwt(payload) {
   const header = btoa(JSON.stringify({ alg: "HS256" }));
@@ -62,5 +62,36 @@ describe("extractToken", () => {
   it("returns null when no JWT in storage", () => {
     const result = extractToken({});
     assert.equal(result, null);
+  });
+});
+
+describe("waitForIdentity", () => {
+  const jwt = makeJwt({
+    user: { CurrentAccess: { Token: "t" }, UserId: "u", DisplayName: "N", Username: "e" },
+  });
+
+  it("returns at once when the session is already there", async () => {
+    let sleeps = 0;
+    const result = await waitForIdentity({ jwt }, { sleep: async () => { sleeps++; } });
+    assert.equal(result.token, "t");
+    assert.equal(sleeps, 0);
+  });
+
+  it("waits until the session appears", async () => {
+    const storage = {};
+    let sleeps = 0;
+    const result = await waitForIdentity(storage, {
+      intervalMs: 500,
+      sleep: async () => { if (++sleeps === 3) storage.jwt = jwt; },
+    });
+    assert.equal(result.token, "t");
+    assert.equal(sleeps, 3);
+  });
+
+  it("gives up with null after the timeout", async () => {
+    let sleeps = 0;
+    const result = await waitForIdentity({}, { timeoutMs: 2000, intervalMs: 500, sleep: async () => { sleeps++; } });
+    assert.equal(result, null);
+    assert.equal(sleeps, 4);
   });
 });

@@ -62,6 +62,8 @@ export function createApp({ api, user, deskLookup, storage }) {
   });
 
   document.addEventListener("keydown", onKeydown);
+  // main.js sends this when the bookmark is clicked while the panel is open.
+  overlay.addEventListener("desk-res-close", dismiss);
 
   document.body.appendChild(overlay);
 

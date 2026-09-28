@@ -1,12 +1,32 @@
 const PAGES_BASE = "https://nilaybarde.github.io/appspace-desk-reservations/app";
 const v = Date.now();
 
-const { extractToken } = await import(`./identity.js?v=${v}`);
-const { createApi } = await import(`./api.js?v=${v}`);
-const { createApp } = await import(`./ui.js?v=${v}`);
+// The bookmark only redirects off Appspace and loads this file, so behaviour
+// lives here, where changes reach users without them re-dragging the bookmark.
+const open = document.getElementById("desk-res-app");
+if (open) {
+  // Clicking while the panel is open closes it, asking first if work is running.
+  open.dispatchEvent(new CustomEvent("desk-res-close"));
+} else if (!window.__deskResLoading) {
+  // Ignore repeat clicks while a load is still waiting for the session.
+  window.__deskResLoading = true;
+  init()
+    .catch((err) => {
+      console.error("[Desk Reservations]", err);
+      alert("Something went wrong loading the desk reservation tool. Check the console for details.");
+    })
+    .finally(() => {
+      window.__deskResLoading = false;
+    });
+}
 
 async function init() {
-  const identity = extractToken(sessionStorage);
+  const { extractToken, waitForIdentity } = await import(`./identity.js?v=${v}`);
+  const { createApi } = await import(`./api.js?v=${v}`);
+  const { createApp } = await import(`./ui.js?v=${v}`);
+
+  // Right after login Appspace may not have written the session yet.
+  const identity = await waitForIdentity(sessionStorage);
   if (!identity) {
     alert("Log into Appspace first, then click this bookmark again.");
     return;
@@ -59,8 +79,3 @@ async function init() {
 
   createApp(params);
 }
-
-init().catch((err) => {
-  console.error("[Desk Reservations]", err);
-  alert("Something went wrong loading the desk reservation tool. Check the console for details.");
-});
