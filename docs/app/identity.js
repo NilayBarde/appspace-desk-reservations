@@ -39,3 +39,19 @@ export function extractToken(storage) {
   if (!jwt) return null;
   return parseSessionJwt(jwt);
 }
+
+// Poll storage for the session JWT, which Appspace writes shortly after login
+// finishes. Resolves to the identity, or null once timeoutMs passes without one.
+export async function waitForIdentity(storage, {
+  timeoutMs = 20000,
+  intervalMs = 500,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+} = {}) {
+  let waited = 0;
+  for (;;) {
+    const identity = extractToken(storage);
+    if (identity || waited >= timeoutMs) return identity;
+    await sleep(intervalMs);
+    waited += intervalMs;
+  }
+}
