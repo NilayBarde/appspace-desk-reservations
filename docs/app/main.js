@@ -12,7 +12,15 @@ async function init() {
     return;
   }
 
-  const api = createApi(fetch.bind(window), identity.token);
+  // Read the session on every request so a token Appspace refreshes in the
+  // background is used; fall back to the one read at open if it can't be parsed.
+  const api = createApi(fetch.bind(window), () => {
+    try {
+      return (extractToken(sessionStorage) || identity).token;
+    } catch {
+      return identity.token;
+    }
+  });
 
   const valid = await api.verifyToken();
   if (!valid) {
