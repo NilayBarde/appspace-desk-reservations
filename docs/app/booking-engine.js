@@ -188,6 +188,32 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   return booked;
 }
 
+// Cancel the user's bookings on the given days, reporting each day through
+// onProgress. A failed day is reported and skipped; an expired session stops the run.
+export async function cancelReservations({ api, bookings, days, onProgress, signal }) {
+  for (const day of days) {
+    if (signal && signal.aborted) throw new Error("CANCELLED");
+    const info = bookings.get(day);
+    if (!info || !info.reservationId) {
+      onProgress({ ok: false, date: day, error: "no reservation ID" });
+      continue;
+    }
+    let res;
+    try {
+      res = await api.deleteReservation(info.reservationId);
+    } catch (err) {
+      onProgress({ ok: false, date: day, error: err.message || "network error" });
+      continue;
+    }
+    checkExpired(res.status);
+    if (res.status >= 200 && res.status < 300) {
+      onProgress({ ok: true, date: day });
+    } else {
+      onProgress({ ok: false, date: day, error: describeError(res.body) || `HTTP ${res.status}` });
+    }
+  }
+}
+
 export function parseExistingBookings(events, organizerId) {
   const own = new Map();
   const others = new Map();

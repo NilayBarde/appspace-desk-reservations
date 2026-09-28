@@ -55,4 +55,21 @@ export function addDays(dateStr, days) {
   return d.toISOString().slice(0, 10);
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "2026-12-24" as "Thu, Dec 24", with the year added when it isn't the current one.
+export function formatDay(dateStr, todayStr = todayEt()) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dow = DOW_NAMES[new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay()];
+  const label = `${dow}, ${MONTH_NAMES[m - 1]} ${d}`;
+  return y === Number(todayStr.slice(0, 4)) ? label : `${label}, ${y}`;
+}
+
+// "17:30" as "5:30 PM".
+export function formatClock(timeStr) {
+  const [h, m] = timeStr.split(":").map(Number);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+
 export { DOW_NAMES };

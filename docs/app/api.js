@@ -2,13 +2,17 @@
 const q = new URL(import.meta.url).search;
 const { etToUtc, todayEt, addDays } = await import(`./time.js${q}`);
 
-export function createApi(fetchFn, token) {
+// tokenSource is the token, or a function returning it. A function is read on
+// every request, so a token Appspace refreshes in the page is picked up mid-run.
+export function createApi(fetchFn, tokenSource) {
+  const getToken = typeof tokenSource === "function" ? tokenSource : () => tokenSource;
+
   async function request(method, path, body) {
     const options = {
       method,
       headers: {
         accept: "application/json",
-        token,
+        token: getToken(),
         "content-type": "application/json;charset=UTF-8",
         "x-appspace-request-timezone": "America/New_York",
       },

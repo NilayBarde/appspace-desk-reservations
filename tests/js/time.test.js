@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { etToUtc, formatUtcToEt, todayEt, addDays } from "../../docs/app/time.js";
+import { etToUtc, formatUtcToEt, todayEt, addDays, formatDay, formatClock } from "../../docs/app/time.js";
 
 describe("etToUtc", () => {
   it("converts 9:00 AM ET to 13:00 UTC during EDT (summer)", () => {
@@ -81,5 +81,24 @@ describe("addDays", () => {
 
   it("adds days across the DST fall-back date", () => {
     assert.equal(addDays("2026-10-31", 2), "2026-11-02");
+  });
+});
+
+describe("formatDay", () => {
+  it("formats a date in the current year without the year", () => {
+    assert.equal(formatDay("2026-12-24", "2026-09-28"), "Thu, Dec 24");
+  });
+
+  it("adds the year for a date in another year", () => {
+    assert.equal(formatDay("2027-01-04", "2026-12-15"), "Mon, Jan 4, 2027");
+  });
+});
+
+describe("formatClock", () => {
+  it("formats morning, noon, afternoon and midnight", () => {
+    assert.equal(formatClock("09:00"), "9:00 AM");
+    assert.equal(formatClock("12:30"), "12:30 PM");
+    assert.equal(formatClock("17:05"), "5:05 PM");
+    assert.equal(formatClock("00:15"), "12:15 AM");
   });
 });
