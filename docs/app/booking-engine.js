@@ -22,7 +22,9 @@ export function getTargetDates({ startDate, endDate, selectedDays, existingDates
 export function findParkCandidates(todayStr, occupiedDates) {
   const candidates = [];
   const today = new Date(todayStr + "T12:00:00Z");
-  for (let i = 2; i <= 7; i++) {
+  // Day 7 is only inside Appspace's rolling 7 day window before the current time of day,
+  // so park no further out than day 6.
+  for (let i = 2; i <= 6; i++) {
     const d = new Date(today);
     d.setUTCDate(d.getUTCDate() + i);
     const dow = d.getUTCDay();
@@ -73,7 +75,7 @@ async function bookOneDay({ api, resourceId, targetDate, parkDate, user, todaySt
   if (directStatus >= 200 && directStatus < 300) return { ok: true, date: targetDate };
 
   // Direct booking rejected — fall back to park-and-patch only for far dates.
-  if (daysOut(todayStr, targetDate) <= 7 || !parkDate) {
+  if (daysOut(todayStr, targetDate) < 7 || !parkDate) {
     return { ok: false, date: targetDate, error: directBody.message || `HTTP ${directStatus}` };
   }
 
@@ -106,7 +108,7 @@ export async function bookAllDays({ api, resourceId, user, targetDates, todayStr
   const directDates = [];
   const farDates = [];
   for (const d of targetDates) {
-    if (daysOut(todayStr, d) <= 7) {
+    if (daysOut(todayStr, d) < 7) {
       directDates.push(d);
     } else {
       farDates.push(d);

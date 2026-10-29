@@ -242,4 +242,27 @@ describe("bookAllDays", () => {
     assert.equal(results.length, 1);
     assert.ok(results[0].ok);
   });
+
+  it("falls back to park-and-patch for a date exactly 7 days out", async () => {
+    const today = "2026-10-29";
+    const day7 = "2026-11-05";
+    const api = createMockApi({
+      createFn: (dateStr) => dateStr === day7
+        ? { status: 400, body: { message: "StartAt should not less than now + 7 days" } }
+        : { status: 200, body: { id: "res-1", events: [{ id: "evt-1" }] } },
+    });
+
+    const results = [];
+    await bookAllDays({
+      api,
+      resourceId: "res-1",
+      user: { id: "u1", name: "Test", email: "t@t.com" },
+      targetDates: [day7],
+      todayStr: today,
+      onProgress: (r) => results.push(r),
+    });
+
+    assert.ok(api.calls.some((c) => c.action === "patch" && c.dateStr === day7));
+    assert.ok(results[0].ok);
+  });
 });
