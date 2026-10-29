@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { findParkCandidates } from "../../docs/app/booking-engine.js";
 
 describe("findParkCandidates", () => {
-  it("returns weekdays 2-7 days out that are not occupied", () => {
+  it("returns weekdays 2-6 days out that are not occupied", () => {
     const today = "2026-06-15";
     const candidates = findParkCandidates(today, new Set());
     assert.ok(candidates.length > 0);
@@ -25,12 +25,17 @@ describe("findParkCandidates", () => {
   it("returns empty when all park dates occupied", () => {
     const today = "2026-06-15";
     const all = new Set();
-    for (let i = 2; i <= 7; i++) {
+    for (let i = 2; i <= 6; i++) {
       const d = new Date("2026-06-15T12:00:00Z");
       d.setUTCDate(d.getUTCDate() + i);
       all.add(d.toISOString().slice(0, 10));
     }
     const candidates = findParkCandidates(today, all);
     assert.equal(candidates.length, 0);
+  });
+
+  it("never parks on day 7", () => {
+    const candidates = findParkCandidates("2026-10-29", new Set());
+    assert.ok(!candidates.includes("2026-11-05"));
   });
 });
